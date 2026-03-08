@@ -1,0 +1,23 @@
+{
+  "skill_name": "agent-link",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "我在用 feishu-sdk@2.3.1 调飞书通讯录 API 的时候一直报 403，错误码 10003 permission denied。我已经在应用权限里加了「通讯录读取」，也重新生成了 App Token，还是不行。Node.js 20.11.0，企业自建应用。帮我把这个问题打包一下，我找老王帮忙看看。",
+      "expected_output": "生成包含 <!-- AGENT-LINK-REQUEST v1 --> 标记的结构化协作请求，包含完整的问题描述、环境信息、报错信息、已尝试方案，并提示用户复制发送",
+      "files": []
+    },
+    {
+      "id": 2,
+      "prompt": "帮我看看这个问题：\n\n<!-- AGENT-LINK-REQUEST v1 -->\n\n# 协作请求：Docker 容器启动失败\n\n**来自**：小李 的 Agent\n**时间**：2026-03-08 15:30\n**类型**：bug 排查\n\n## 问题描述\nDocker Compose 启动 PostgreSQL 容器时，容器反复重启，日志显示 initdb 失败。\n\n## 环境信息\n- Docker Desktop 4.28.0 (macOS Sonoma 14.4)\n- Docker Compose v2.24.6\n- PostgreSQL 16 官方镜像\n- 主机磁盘剩余 50GB\n\n## 报错信息\n```\ninitdb: error: directory \"/var/lib/postgresql/data\" exists but is not empty\nIt contains a lost+found directory, perhaps due to it being a mount point.\nUsing a mount point directly as the data directory is not recommended.\nUse the subdirectory option to avoid this.\n```\n\n## 已尝试方案\n1. ✅ docker volume prune 清理卷 → 问题依旧\n2. ✅ 删除并重建容器 → 问题依旧\n3. ❌ 未检查 volume mount 配置\n\n## 期望\n定位 initdb 失败的根因，给出解决步骤。\n\n<!-- END AGENT-LINK-REQUEST -->",
+      "expected_output": "识别 AGENT-LINK-REQUEST 标记，分析 Docker PostgreSQL initdb 问题（volume mount 到根目录导致 lost+found 存在），生成包含 <!-- AGENT-LINK-RESPONSE v1 --> 标记的结构化回复，并提示用户复制发回",
+      "files": []
+    },
+    {
+      "id": 3,
+      "prompt": "老王回复了：\n\n<!-- AGENT-LINK-RESPONSE v1 -->\n\n# 协作回复：飞书权限问题\n\n**来自**：老王 的 Agent\n**时间**：2026-03-08 14:45\n**针对**：Kenny 的 Agent 的协作请求\n\n## 诊断结果\n错误码 10003 表示应用虽然在权限列表中添加了「通讯录读取」，但租户管理员尚未审批该权限。飞书的企业自建应用权限分两类：应用自身可开启的权限 和 需管理员审批的高敏感权限。通讯录读取属于后者。\n\n## 建议方案\n\n### 方案 A（推荐）：申请管理员审批\n1. 登录飞书管理后台 → 应用管理 → 找到你的应用\n2. 查看「权限管理」→「待审批权限」\n3. 联系租户管理员点击「审批通过」\n4. 等待 5-10 分钟生效后重试\n\n### 方案 B：使用 User Token 替代\n如果无法获得管理员审批，可以改用 User Access Token 调用，但需要用户手动授权。\n\n## 补充说明\n- 建议同时检查 IP 白名单配置\n- 如果后续还需要其他高敏感权限，建议一次性申请\n\n<!-- END AGENT-LINK-RESPONSE -->\n\n帮我看看他说了什么，我该怎么做？",
+      "expected_output": "识别 AGENT-LINK-RESPONSE 标记，解读回复内容，用通俗语言告诉用户：根因是管理员未审批权限，推荐的下一步操作是什么，哪些需要用户手动做",
+      "files": []
+    }
+  ]
+}

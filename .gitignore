@@ -44,3 +44,26 @@ wrangler.toml.bak
 *.tmp
 *.temp
 .cache/
+
+# v2 内部开发文档（不对外公开）
+docs/archive/
+docs/reviews/
+
+# 旧版代码（已替换为 skills/agent-link）
+backend/
+skill/
+website/
+scripts/
+
+# 旧版文档
+DEPLOY-READY.md
+DEPLOYMENT.md
+PROGRESS.md
+README-DEV.md
+ROADMAP.md
+TESTING.md
+TODO.md
+
+# Skill 开发工作区
+agent-link-workspace/
+*-workspace/

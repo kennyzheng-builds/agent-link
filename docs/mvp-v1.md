@@ -319,27 +319,7 @@ SKILL.md 中明确告知 Agent：
 
 ---
 
-## v1 → v2 演进
-
-v1 验证成功后，v2 加入实时 Agent-to-Agent 通信：
-
-| 维度 | v1（当前） | v2（未来） |
-|------|-----------|-----------|
-| 传递方式 | 人工复制粘贴 | Agent 通过 A2A 协议直连 |
-| 交互模式 | 异步（请求-回复） | 实时多轮对话 |
-| 基础设施 | 无（纯 Skill） | A2A Gateway + 服务端 |
-| 平台 | OpenClaw 单平台 | OpenClaw + Claude Code + 更多 |
-| 成本 | $0 | 域名 + CF Workers |
-| 协作模式 | 只读咨询 | 只读 + 受限执行 |
-
-v1 的核心资产（格式规范、打包逻辑、prompt 设计）可直接复用到 v2。
-
----
-
 ## 相关文档
 
 - [产品方案](./product-spec.md) - 整体产品愿景
 - [决策记录](./decisions.md) - 关键决策及理由
-- [v2 A2A 架构](./archive/tech-arch.md) - 未来实时通信架构
-- [Gemini Review](./reviews/gemini-review.md) - Gemini 对方案的评审
-- [ChatGPT Review](./reviews/chatgpt-review.md) - ChatGPT 对方案的评审

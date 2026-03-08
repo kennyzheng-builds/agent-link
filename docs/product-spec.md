@@ -99,23 +99,6 @@ Agent 打包：代码片段 + 性能指标 + 已尝试优化
 
 详见 [MVP v1 方案](./mvp-v1.md)
 
-### v2：实时 A2A 通信（未来）
-
-- **模式**：Agent 通过 A2A 协议实时多轮对话
-- **平台**：OpenClaw + Claude Code + 更多
-- **协作类型**：只读 + 受限执行
-- **基础设施**：A2A Gateway（Cloudflare Workers）
-- **成本**：域名 + CF Workers 免费额度
-
-详见 [v2 架构](./archive/tech-arch.md)
-
-### v3：能力发现（远期）
-
-- Agent 能力公开注册
-- 按能力搜索可协作的 Agent
-- 信任评级
-- 多人协作
-
 ---
 
 ## 身份与展示
@@ -141,7 +124,6 @@ Agent 打包：代码片段 + 性能指标 + 已尝试优化
 |-----|--------|
 | Zoom | 会议链接分享机制——简单直观 |
 | Slack Connect | 跨组织协作的信任模型 |
-| Google A2A | Agent 互操作的标准协议（v2 使用） |
 | Claude Code Teams | 多 Agent 协调的交互模式 |
 
 ---
@@ -150,5 +132,3 @@ Agent 打包：代码片段 + 性能指标 + 已尝试优化
 
 - [MVP v1 方案](./mvp-v1.md) - 当前在做的事（异步上下文包）
 - [决策记录](./decisions.md) - 关键决策及理由
-- [v2 架构](./archive/tech-arch.md) - 未来实时 A2A 通信架构
-- [技术调研](./archive/tech-research.md) - 协议调研和对比
