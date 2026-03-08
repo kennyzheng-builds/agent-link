@@ -1,0 +1,29 @@
+# Agent Link 信令服务配置
+name = "agent-link-signaling"
+main = "src/index.ts"
+compatibility_date = "2024-03-20"
+
+# Durable Objects 绑定
+[[durable_objects.bindings]]
+name = "SESSION"
+class_name = "SessionDurableObject"
+
+# Durable Objects 类定义
+[[migrations]]
+tag = "v1"
+new_classes = ["SessionDurableObject"]
+
+# 环境变量（可在部署时覆盖）
+[vars]
+# 会话默认过期时间（分钟）
+SESSION_EXPIRY_MINUTES = "10"
+# 连接码长度
+CODE_LENGTH = "6"
+
+# 开发环境配置
+[env.dev]
+name = "agent-link-signaling-dev"
+
+# 生产环境配置
+[env.production]
+name = "agent-link-signaling"

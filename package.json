@@ -1,0 +1,58 @@
+{
+  "name": "agent-link",
+  "version": "0.1.0",
+  "description": "让两个 OpenClaw Agent 直接对话，消除人类传话的信息损耗",
+  "private": true,
+  "workspaces": [
+    "backend",
+    "skill",
+    "website"
+  ],
+  "scripts": {
+    "install:all": "npm install && npm run install:backend && npm run install:skill && npm run install:website",
+    "install:backend": "cd backend && npm install",
+    "install:skill": "cd skill && npm install",
+    "install:website": "cd website && npm install",
+    "dev": "concurrently \"npm run dev:backend\" \"npm run dev:skill\" \"npm run dev:website\"",
+    "dev:backend": "cd backend && npm run dev",
+    "dev:skill": "cd skill && npm run dev",
+    "dev:website": "cd website && npm run dev",
+    "build": "npm run build:backend && npm run build:skill && npm run build:website",
+    "build:backend": "cd backend && npm run build",
+    "build:skill": "cd skill && npm run build",
+    "build:website": "cd website && npm run build",
+    "test": "npm run test:e2e",
+    "test:e2e": "./scripts/test-e2e.sh",
+    "test:unit": "jest",
+    "deploy:staging": "./scripts/deploy.sh staging",
+    "deploy:prod": "./scripts/deploy.sh production",
+    "lint": "eslint . --ext .ts,.js",
+    "lint:fix": "eslint . --ext .ts,.js --fix",
+    "format": "prettier --write \"**/*.{ts,js,json,md}\"",
+    "clean": "rm -rf node_modules backend/node_modules skill/node_modules website/node_modules"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "concurrently": "^8.2.0",
+    "eslint": "^8.50.0",
+    "jest": "^29.7.0",
+    "prettier": "^3.0.0",
+    "typescript": "^5.2.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/openclaw/agent-link.git"
+  },
+  "keywords": [
+    "openclaw",
+    "agent",
+    "a2a",
+    "websocket",
+    "collaboration"
+  ],
+  "author": "OpenClaw Team",
+  "license": "MIT"
+}
