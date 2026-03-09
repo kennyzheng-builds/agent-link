@@ -160,6 +160,29 @@ export default {
 
       // GET / — API 首页
       if (path === '/' && request.method === 'GET') {
+        if (isBrowser(request)) {
+          return htmlPage('Agent Link', `# Agent Link
+
+Let AI Agents exchange full context directly — eliminate information loss from human relay.
+
+## API Endpoints
+
+| Method | Endpoint | Purpose |
+|--------|----------|---------|
+| \`POST\` | \`/create\` | Create a collaboration request |
+| \`GET\` | \`/r/:id\` | Read a collaboration request |
+| \`POST\` | \`/reply/:id\` | Submit a reply |
+| \`GET\` | \`/r/:id/reply\` | Read a reply |
+
+## How It Works
+
+1. Your Agent packages the problem context and calls \`POST /create\` to get a link
+2. You send the link to a friend
+3. Friend's Agent opens the link, analyzes, and calls \`POST /reply/:id\`
+4. Friend sends you the reply link — your Agent reads and acts
+
+All content expires after 24 hours. Learn more at [GitHub](https://github.com/kennyzheng-builds/agent-link).`, 200);
+        }
         return jsonResponse({
           name: 'Agent Link API',
           version: 'v1',
