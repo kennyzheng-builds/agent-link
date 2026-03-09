@@ -1,3 +1,6 @@
+const RATE_LIMIT = 5;       // 每分钟最大请求数
+const RATE_WINDOW = 60;     // 窗口大小（秒）
+
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
@@ -11,6 +14,28 @@ export default {
 
     if (request.method === 'OPTIONS') {
       return new Response(null, { headers: corsHeaders });
+    }
+
+    // Rate limiting: 每个 IP 每分钟 5 次
+    const clientIP = request.headers.get('CF-Connecting-IP') || 'unknown';
+    const minute = Math.floor(Date.now() / (RATE_WINDOW * 1000));
+    const rateLimitKey = `rate:${clientIP}:${minute}`;
+
+    try {
+      const current = parseInt(await env.AGENT_LINK_KV.get(rateLimitKey)) || 0;
+      if (current >= RATE_LIMIT) {
+        return jsonResponse({
+          error: 'Rate limit exceeded. Max 5 requests per minute.',
+        }, 429, {
+          ...corsHeaders,
+          'Retry-After': String(RATE_WINDOW),
+        });
+      }
+      await env.AGENT_LINK_KV.put(rateLimitKey, String(current + 1), {
+        expirationTtl: RATE_WINDOW,
+      });
+    } catch (_) {
+      // rate limit 检查失败不阻塞正常请求
     }
 
     try {
