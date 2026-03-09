@@ -1,18 +1,18 @@
 ---
-name: agent-link
+name: agents-link
 description: >-
   Agent 间协作链接——让 Agent 打包问题上下文生成链接、通过链接读取并分析协作请求、生成协作回复链接。
   消除人类在 Agent 之间传话造成的信息损耗。
   Use this skill whenever:
   (1) user wants to package a problem for someone else's agent ("帮我打包这个问题", "我要找人帮忙看看", "生成协作请求", "pack this problem"),
-  (2) user pastes an Agent Link URL (agentslink.link/r/...),
-  (3) user pastes text containing <!-- AGENT-LINK-REQUEST or <!-- AGENT-LINK-RESPONSE or <!-- AGENT-LINK-FOLLOWUP markers (legacy format),
+  (2) user pastes an AgentsLink URL (agentslink.link/r/...),
+  (3) user pastes text containing <!-- AGENTS-LINK-REQUEST or <!-- AGENTS-LINK-RESPONSE or <!-- AGENTS-LINK-FOLLOWUP markers (legacy format),
   (4) user asks to analyze a collaboration request from another agent,
   (5) user wants to follow up on a previous collaboration ("还有问题", "方案试了不行", "继续追问"),
-  (6) user mentions "agent-link", "协作请求", "协作回复", or "上下文包".
+  (6) user mentions "agents-link", "协作请求", "协作回复", or "上下文包".
 ---
 
-# Agent Link：协作链接
+# AgentsLink：协作链接
 
 让 Agent（而非人类）来打包和解读问题上下文，人类只负责传递链接。
 
@@ -33,12 +33,12 @@ https://agentslink.link
 首次使用时询问用户："你希望在协作中怎么称呼？（比如你的名字或昵称）"
 
 读取优先级：
-1. `~/.agent-link/config.json` 中的 `displayName` 字段
-2. 环境变量 `AGENT_LINK_DISPLAY_NAME`
+1. `~/.agents-link/config.json` 中的 `displayName` 字段
+2. 环境变量 `AGENTS_LINK_DISPLAY_NAME`
 3. 系统用户名
 4. "匿名"
 
-首次获取后保存到 `~/.agent-link/config.json`：
+首次获取后保存到 `~/.agents-link/config.json`：
 ```json
 {"displayName": "Kenny"}
 ```
@@ -241,7 +241,7 @@ curl -s https://agentslink.link/r/<id>/reply
 
 ## 兼容旧格式
 
-如果用户粘贴的是包含 `<!-- AGENT-LINK-REQUEST v1 -->`、`<!-- AGENT-LINK-RESPONSE v1 -->` 或 `<!-- AGENT-LINK-FOLLOWUP v1 -->` 标记的纯文本（而不是链接），仍然按原来的方式直接解析和处理，但回复时优先使用 API 生成链接。
+如果用户粘贴的是包含 `<!-- AGENTS-LINK-REQUEST v1 -->`、`<!-- AGENTS-LINK-RESPONSE v1 -->` 或 `<!-- AGENTS-LINK-FOLLOWUP v1 -->` 标记的纯文本（而不是链接），仍然按原来的方式直接解析和处理，但回复时优先使用 API 生成链接。
 
 ---
 

@@ -1,7 +1,7 @@
-# Agent Link 官网设计评审报告
+# AgentsLink 官网设计评审报告
 
 **评审日期**: 2026-03-07  
-**评审对象**: `/Users/kenny/documents/coding/agent-link/website/`  
+**评审对象**: `/Users/kenny/documents/coding/agents-link/website/`  
 **评审人**: Design Reviewer Agent
 
 ---
@@ -13,7 +13,7 @@
 | 视觉设计 | 8.5/10 | 温暖高级，但仍有优化空间 |
 | 用户体验 | 9/10 | 信息架构清晰，CTA 明确 |
 | 技术实现 | 8/10 | 代码整洁，响应式良好 |
-| 品牌一致性 | 9/10 | 完美契合 Agent Link 定位 |
+| 品牌一致性 | 9/10 | 完美契合 AgentsLink 定位 |
 | 避免 AI 套路 | 8/10 | 成功避开大部分 cliché |
 
 ---
@@ -47,12 +47,12 @@
 
 **CTA 设计** ⭐⭐⭐⭐⭐
 - 主按钮使用强调色，次按钮使用描边样式
-- 命令行样式的 CTA (`"帮我设置 Agent Link"`) 很有特色
+- 命令行样式的 CTA (`"帮我设置 AgentsLink"`) 很有特色
 - 多处放置 CTA，但不显得 pushy
 
 ### 3. 品牌一致性
 
-**完美契合 Agent Link 定位** ⭐⭐⭐⭐⭐
+**完美契合 AgentsLink 定位** ⭐⭐⭐⭐⭐
 - "像介绍两个朋友认识一样简单" — 文案温暖友好
 - 视觉风格与"消除信息折损"的产品价值一致
 - 安全部分的三个图标 (🔒 👤 💾) 简洁有力
@@ -145,7 +145,7 @@
 
 3. **添加社交分享 Meta 标签**
 ```html
-<meta property="og:title" content="Agent Link — 让 Agent 直接对话">
+<meta property="og:title" content="AgentsLink — 让 Agent 直接对话">
 <meta property="og:description" content="像介绍两个朋友认识一样简单 — 只需一个连接码，两个 Agent 就能直接对话">
 <meta property="og:image" content="https://link.openclaw.ai/og-image.png">
 <meta name="twitter:card" content="summary_large_image">
@@ -218,7 +218,7 @@ body {
 
 ## 🏆 总结
 
-Agent Link 官网整体设计**温暖、高级、克制**，完美契合产品定位。成功避开了 AI 设计的常见套路，信息架构清晰，CTA 明确。
+AgentsLink 官网整体设计**温暖、高级、克制**，完美契合产品定位。成功避开了 AI 设计的常见套路，信息架构清晰，CTA 明确。
 
 **最突出的优点**:
 1. 配色温暖人文，没有冷冰冰的科技感

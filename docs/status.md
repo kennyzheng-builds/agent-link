@@ -24,11 +24,11 @@ MVP v1 开发中 — 异步协作上下文包（OpenClaw Skill）
 
 - With skill 通过率：100%
 - Without skill 通过率：52.8%
-- 核心价值：标准化格式（AGENT-LINK 标记）+ 完整协作流程引导
+- 核心价值：标准化格式（AGENTS-LINK 标记）+ 完整协作流程引导
 
 ## 关键文档
 
 - 产品规格：`docs/product-spec.md`
 - MVP 方案：`docs/mvp-v1.md`
 - 决策记录：`docs/decisions.md`
-- Skill 文件：`skills/agent-link/SKILL.md`
+- Skill 文件：`skills/agents-link/SKILL.md`

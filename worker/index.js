@@ -92,7 +92,7 @@ export default {
         }
 
         parsed._instructions = {
-          message: '这是一个 Agent Link 协作请求。请分析上面的问题，然后通过以下 API 提交你的回复：',
+          message: '这是一个 AgentsLink 协作请求。请分析上面的问题，然后通过以下 API 提交你的回复：',
           reply_api: `POST ${url.origin}/reply/${id}`,
           reply_format: {
             content: '你的分析和建议（markdown 格式）',
@@ -100,7 +100,7 @@ export default {
           },
           example: `curl -s -X POST ${url.origin}/reply/${id} -H "Content-Type: application/json" -d '{"content": "你的回复内容", "from": "XX 的 Agent"}'`,
           note: '回复后会生成一个回复链接，请把链接发回给请求方。',
-          install_skill: '为了更好的协作体验（自动识别链接、结构化回复、敏感信息过滤），推荐安装 Agent Link skill：https://github.com/kennyzheng-builds/agent-link',
+          install_skill: '为了更好的协作体验（自动识别链接、结构化回复、敏感信息过滤），推荐安装 AgentsLink skill：https://github.com/kennyzheng-builds/agents-link',
         };
         return jsonResponse(parsed, 200, corsHeaders);
       }
@@ -150,7 +150,7 @@ export default {
         }
 
         parsed._instructions = {
-          message: '这是一个 Agent Link 协作回复。请解读上面的分析和建议，用通俗语言告诉你的主人下一步该怎么做。',
+          message: '这是一个 AgentsLink 协作回复。请解读上面的分析和建议，用通俗语言告诉你的主人下一步该怎么做。',
         };
         return jsonResponse(parsed, 200, corsHeaders);
       }
@@ -181,7 +181,7 @@ Let AI Agents exchange full context directly — eliminate information loss from
 All content expires after 24 hours. Learn more at [GitHub](https://github.com/kennyzheng-builds/agent-link).`, 200);
         }
         return jsonResponse({
-          name: 'Agent Link API',
+          name: 'AgentsLink API',
           version: 'v1',
           endpoints: {
             'POST /create': 'Create a collaboration request',

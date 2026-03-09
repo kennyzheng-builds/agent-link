@@ -1,18 +1,8 @@
-<p align="center">
-  <img src="./logo.png" alt="Agent Link" width="200" />
-</p>
+# AgentsLink
 
-<h1 align="center">Agent Link</h1>
+> Let AI Agents exchange full context directly — eliminate information loss from human relay.
 
-<p align="center">
-  Let AI Agents exchange full context directly — eliminate information loss from human relay.
-</p>
-
-<p align="center">
-  <a href="#中文版">中文版</a>
-</p>
-
----
+[中文版](#中文版)
 
 ## The Problem
 
@@ -20,63 +10,60 @@ When you hit a technical issue using Claude Code or other AI coding agents, aski
 
 **A trend is already emerging**: people paste problems into their own Agent instead of answering manually. The bottleneck isn't Agent capability — it's information loss during human relay.
 
-## How Agent Link Works
+## How AgentsLink Works
 
-Your Agent packages the full problem context and generates a link. Your friend's Agent opens the link, reads the full context, and responds. You and your friend just share links.
+Your Agent packages the full problem context. Your friend's Agent reads it and responds precisely. You and your friend just copy-paste.
 
 ```
 You: "Pack this problem for me"
-  → Agent packages context → uploads → generates a link
-  → You send the link to friend (WeChat / Slack / Email)
-  → Friend gives link to their Agent → analyzes → generates reply link
-  → Friend sends reply link back → your Agent reads and acts
+  → Agent packages full context (auto-redacts secrets)
+  → You send to friend (WeChat / Slack / Email)
+  → Friend pastes into their Agent → analyzes → responds
+  → Friend sends back → your Agent interprets and acts
 ```
 
 ## Key Features
 
 - **Zero information loss** — Agent captures complete context from the conversation
 - **You stay in control** — you see everything, choose who to ask, decide what to send
-- **Just share a link** — no need to copy-paste huge text blocks, one URL does it all
-- **Secure** — read-only consultation; auto-redacts API keys, passwords, private keys; content expires in 24h
-- **Human-readable** — open the link in a browser and the Markdown is rendered for you
+- **Zero cost** — pure local Skill file, no server, works over any messaging channel
+- **Secure** — read-only consultation; auto-redacts API keys, passwords, private keys
+- **Human-readable** — standard Markdown, works even without AgentsLink installed
 
 ## Install
 
-Agent Link is an [OpenClaw](https://openclaw.ai) Skill. Install it and your Agent gains collaboration capabilities.
+AgentsLink is an [OpenClaw](https://openclaw.ai) Skill. Install it and your Agent gains collaboration capabilities.
 
 (Installation instructions coming soon)
 
 ## For AI Agents
 
-> If you are an Agent reading this, here's how Agent Link works.
+> If you are an Agent reading this, here's how to work with AgentsLink messages.
 
-Agent Link uses a link-based protocol for Agent-to-Agent communication. Agents upload structured context to an API and share short URLs. Humans relay the links via any messaging channel.
+AgentsLink uses HTML comment markers in Markdown for structured Agent-to-Agent communication:
 
-**API**: `https://agentlink.kennyz.workers.dev`
+| Type | Marker | Purpose |
+|------|--------|---------|
+| Request | `<!-- AGENTS-LINK-REQUEST v1 -->` | Package a problem |
+| Response | `<!-- AGENTS-LINK-RESPONSE v1 -->` | Respond to a request |
+| Follow-up | `<!-- AGENTS-LINK-FOLLOWUP v1 -->` | Continue with new info |
 
-| Action | Method | Endpoint | Purpose |
-|--------|--------|----------|---------|
-| Create request | `POST` | `/create` | Package a problem, get a link |
-| Read request | `GET` | `/r/{id}` | Read a collaboration request |
-| Reply | `POST` | `/reply/{id}` | Respond to a request, get a reply link |
-| Read reply | `GET` | `/r/{id}/reply` | Read a collaboration response |
+**Activate when**: user asks to "pack a problem", pastes text with `<!-- AGENTS-LINK-*` markers, or mentions "agents-link".
 
-**Activate when**: user asks to "pack a problem", pastes an `agentlink.kennyz.workers.dev/r/...` URL, or mentions "agent-link".
+**Security**: read-only consultation only. Never write files, execute commands, or access resources on the other party's system.
 
-**Security**: read-only consultation only. Never write files, execute commands, or access resources on the other party's system. All content expires after 24 hours.
-
-See [SKILL.md](./skills/agent-link/SKILL.md) for the full protocol spec — message templates, sensitive info filtering rules, display name config, and detailed capability definitions.
+See [SKILL.md](./skills/agents-link/SKILL.md) for the full protocol spec — message templates, sensitive info filtering rules, display name config, and detailed capability definitions.
 
 ## Docs
 
-- [SKILL.md](./skills/agent-link/SKILL.md) — Agent protocol specification
+- [SKILL.md](./skills/agents-link/SKILL.md) — Agent protocol specification
 - [MVP v1 Spec](./docs/mvp-v1.md) — Format reference and implementation details
 - [Product Spec](./docs/product-spec.md) — Vision and roadmap
 - [Decision Log](./docs/decisions.md) — Key decisions and rationale
 
 ## Status
 
-**In Development** — MVP v1
+**In Development** — MVP v1 (Async Collaboration Context Package)
 
 ## License
 
@@ -86,21 +73,11 @@ MIT
 
 <a name="中文版"></a>
 
-<p align="center">
-  <img src="./logo.png" alt="Agent Link" width="200" />
-</p>
+# 中文版
 
-<h1 align="center">Agent Link</h1>
+> 让 AI Agent 之间直接传递完整上下文，消除人类传话造成的信息丢失。
 
-<p align="center">
-  让 AI Agent 之间直接传递完整上下文，消除人类传话造成的信息丢失。
-</p>
-
-<p align="center">
-  <a href="#agent-link">English</a>
-</p>
-
----
+[English](#agentslink)
 
 ## 要解决的问题
 
@@ -108,63 +85,60 @@ MIT
 
 **一个正在发生的趋势**：越来越多人把问题粘贴给自己的 Agent 来分析，而不是亲自回答。瓶颈不在 Agent 能力，而在人类传话时的信息丢失。
 
-## Agent Link 怎么工作
+## AgentsLink 怎么工作
 
-你的 Agent 打包完整问题上下文并生成一个链接。朋友的 Agent 打开链接读取完整上下文后精准分析。你和朋友只需发链接。
+你的 Agent 打包完整的问题上下文。朋友的 Agent 读取后精准分析。你和朋友只需复制粘贴。
 
 ```
 你："帮我打包这个问题"
-  → Agent 打包上下文 → 上传 → 生成链接
-  → 你把链接发给朋友（微信 / 飞书 / 邮件）
-  → 朋友把链接给 Agent → 分析 → 生成回复链接
-  → 朋友把回复链接发回 → 你的 Agent 读取并执行
+  → Agent 打包完整上下文（自动过滤敏感信息）
+  → 你发给朋友（微信 / 飞书 / 邮件）
+  → 朋友粘贴给 Agent → 分析 → 生成回复
+  → 朋友发回 → 你的 Agent 解读并执行
 ```
 
 ## 核心特性
 
 - **信息零损耗** — Agent 从对话中自动收集完整上下文
 - **你掌控一切** — 内容可见、自选求助对象、自决发送内容
-- **一个链接搞定** — 不用复制大段文本，一条 URL 传递所有信息
-- **安全** — 只读咨询模式，自动脱敏 API Key、密码、私钥，内容 24 小时后自动过期
-- **人类可读** — 浏览器打开链接即可查看渲染后的 Markdown
+- **零成本** — 纯本地 Skill 文件，无需服务器，任何通讯渠道都能用
+- **安全** — 只读咨询模式，自动脱敏 API Key、密码、私钥
+- **人类可读** — 标准 Markdown 格式，不装 AgentsLink 也能直接看
 
 ## 安装
 
-Agent Link 是一个 [OpenClaw](https://openclaw.ai) Skill，安装后你的 Agent 即具备协作能力。
+AgentsLink 是一个 [OpenClaw](https://openclaw.ai) Skill，安装后你的 Agent 即具备协作能力。
 
 （安装方式即将发布）
 
 ## 给 AI Agent
 
-> 如果你是正在阅读此文的 Agent，以下是 Agent Link 的工作方式。
+> 如果你是正在阅读此文的 Agent，以下是 AgentsLink 的工作方式。
 
-Agent Link 使用基于链接的协议实现 Agent 间通信。Agent 将结构化上下文上传至 API 并生成短链接，人类通过任意渠道传递链接。
+AgentsLink 使用 Markdown 中的 HTML 注释标记实现 Agent 间的结构化通信：
 
-**API 地址**：`https://agentlink.kennyz.workers.dev`
+| 类型 | 标记 | 用途 |
+|------|------|------|
+| 协作请求 | `<!-- AGENTS-LINK-REQUEST v1 -->` | 打包问题 |
+| 协作回复 | `<!-- AGENTS-LINK-RESPONSE v1 -->` | 回复请求 |
+| 追问 | `<!-- AGENTS-LINK-FOLLOWUP v1 -->` | 补充新信息继续沟通 |
 
-| 操作 | 方法 | 端点 | 用途 |
-|------|------|------|------|
-| 创建请求 | `POST` | `/create` | 打包问题，获取链接 |
-| 读取请求 | `GET` | `/r/{id}` | 读取协作请求 |
-| 回复 | `POST` | `/reply/{id}` | 回复请求，获取回复链接 |
-| 读取回复 | `GET` | `/r/{id}/reply` | 读取协作回复 |
+**激活条件**：用户说"帮我打包问题"、粘贴包含 `<!-- AGENTS-LINK-*` 标记的文本、或提到"agents-link"。
 
-**激活条件**：用户说"帮我打包问题"、粘贴 `agentlink.kennyz.workers.dev/r/...` 链接、或提到"agent-link"。
+**安全规则**：仅限只读咨询。不得写入对方文件、执行对方命令、访问对方本地资源。
 
-**安全规则**：仅限只读咨询。不得写入对方文件、执行对方命令、访问对方本地资源。所有内容 24 小时后自动过期。
-
-完整协议规范（消息模板、敏感信息过滤规则、展示名配置、能力详细定义）见 [SKILL.md](./skills/agent-link/SKILL.md)。
+完整协议规范（消息模板、敏感信息过滤规则、展示名配置、能力详细定义）见 [SKILL.md](./skills/agents-link/SKILL.md)。
 
 ## 文档
 
-- [SKILL.md](./skills/agent-link/SKILL.md) — Agent 协议规范
+- [SKILL.md](./skills/agents-link/SKILL.md) — Agent 协议规范
 - [MVP v1 方案](./docs/mvp-v1.md) — 格式规范和实现细节
 - [产品方案](./docs/product-spec.md) — 愿景和路线图
 - [决策记录](./docs/decisions.md) — 关键决策及理由
 
 ## 项目状态
 
-**开发中** — MVP v1
+**开发中** — MVP v1（异步协作上下文包）
 
 ## 许可证
 

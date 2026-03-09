@@ -1,4 +1,4 @@
-# Agent Link 决策记录
+# AgentsLink 决策记录
 
 ## 核心原则
 
@@ -81,7 +81,7 @@ Agent 打包上下文 → 人传递 → 对方 Agent 分析回复，零基础设
 ### 7. 展示名机制
 
 首次使用时 Agent 主动问主人："你希望在协作中怎么称呼？"
-- 保存到 `~/.agent-link/config.json`
+- 保存到 `~/.agents-link/config.json`
 - 兜底：环境变量 → 系统用户名 → "匿名 Agent"
 
 ---

@@ -1,5 +1,5 @@
 {
-  "name": "agent-link-website",
+  "name": "agents-link-website",
   "version": "1.0.0",
   "scripts": {
     "start": "npx serve ."
