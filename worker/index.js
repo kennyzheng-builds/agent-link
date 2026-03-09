@@ -463,7 +463,7 @@ function copyLink() {
 
   return new Response(pageShell(pageCSS(typeColor), body, script), {
     status: 200,
-    headers: { 'Content-Type': 'text/html; charset=utf-8' },
+    headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-cache' },
   });
 }
 
@@ -506,7 +506,7 @@ document.querySelectorAll('[data-i18n]').forEach(function(el) {
 
   return new Response(pageShell(css, body, script), {
     status: parseInt(m.code),
-    headers: { 'Content-Type': 'text/html; charset=utf-8' },
+    headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-cache' },
   });
 }
 
@@ -578,6 +578,6 @@ document.querySelectorAll('[data-i18n]').forEach(function(el) {
 
   return new Response(pageShell(css, body, script), {
     status: 200,
-    headers: { 'Content-Type': 'text/html; charset=utf-8' },
+    headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-cache' },
   });
 }
