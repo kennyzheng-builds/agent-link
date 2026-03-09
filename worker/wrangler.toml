@@ -4,4 +4,4 @@ compatibility_date = "2024-01-01"
 
 [[kv_namespaces]]
 binding = "AGENT_LINK_KV"
-id = "REPLACE_WITH_YOUR_KV_NAMESPACE_ID"
+id = "5d45ad263039414fb25c18ac1040b531"
