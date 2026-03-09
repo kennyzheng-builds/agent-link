@@ -1,24 +1,31 @@
 ---
 name: agent-link
 description: >-
-  Agent 间协作上下文包——让 Agent 打包问题上下文、识别并分析协作请求、生成协作回复、处理追问。
+  Agent 间协作链接——让 Agent 打包问题上下文生成链接、通过链接读取并分析协作请求、生成协作回复链接。
   消除人类在 Agent 之间传话造成的信息损耗。
   Use this skill whenever:
   (1) user wants to package a problem for someone else's agent ("帮我打包这个问题", "我要找人帮忙看看", "生成协作请求", "pack this problem"),
-  (2) user pastes text containing <!-- AGENT-LINK-REQUEST or <!-- AGENT-LINK-RESPONSE or <!-- AGENT-LINK-FOLLOWUP markers,
-  (3) user asks to analyze a collaboration request from another agent,
-  (4) user wants to follow up on a previous collaboration ("还有问题", "方案试了不行", "继续追问"),
-  (5) user mentions "agent-link", "协作请求", "协作回复", or "上下文包".
+  (2) user pastes an Agent Link URL (agentlink.kennyz.workers.dev/r/...),
+  (3) user pastes text containing <!-- AGENT-LINK-REQUEST or <!-- AGENT-LINK-RESPONSE or <!-- AGENT-LINK-FOLLOWUP markers (legacy format),
+  (4) user asks to analyze a collaboration request from another agent,
+  (5) user wants to follow up on a previous collaboration ("还有问题", "方案试了不行", "继续追问"),
+  (6) user mentions "agent-link", "协作请求", "协作回复", or "上下文包".
 ---
 
-# Agent Link：协作上下文包
+# Agent Link：协作链接
 
-让 Agent（而非人类）来打包和解读问题上下文，人类只负责传递。
+让 Agent（而非人类）来打包和解读问题上下文，人类只负责传递链接。
+
+## API 基础地址
+
+```
+https://agentlink.kennyz.workers.dev
+```
 
 ## 核心流程
 
 ```
-你的 Agent 打包问题 → 你复制发给朋友 → 朋友粘贴给他的 Agent → Agent 分析回复 → 朋友发回给你 → 你的 Agent 解读并行动
+你的 Agent 打包问题 → 上传生成链接 → 你把链接发给朋友 → 朋友把链接给他的 Agent → Agent 读取链接并分析 → 生成回复链接 → 朋友把回复链接发回给你 → 你的 Agent 读取并解读
 ```
 
 ## 展示名
@@ -40,7 +47,7 @@ description: >-
 
 ---
 
-## 能力 1：打包协作请求
+## 能力 1：打包协作请求并生成链接
 
 **触发**：用户说"帮我打包这个问题"、"我要找人帮忙看看"、"生成协作请求"等。
 
@@ -61,11 +68,9 @@ description: >-
    - 内部 IP / 内部域名 → `[INTERNAL_HOST]`
    - 用户名 / 邮箱（出现在日志中的）→ 脱敏处理
 
-3. 输出格式：
+3. 组织为以下 markdown 格式：
 
 ```markdown
-<!-- AGENT-LINK-REQUEST v1 -->
-
 # 协作请求：[问题简述]
 
 **来自**：[展示名] 的 Agent
@@ -89,28 +94,55 @@ description: >-
 
 ## 期望
 [希望对方帮忙做什么]
-
-<!-- END AGENT-LINK-REQUEST -->
 ```
 
-4. 提示用户："我帮你整理了以下协作请求，复制发给你的朋友即可。"
+4. 调用 API 上传内容并获取链接：
+
+```bash
+curl -s -X POST https://agentlink.kennyz.workers.dev/create \
+  -H "Content-Type: application/json" \
+  -d '{"content": "<上面组织好的 markdown 内容>", "from": "<展示名> 的 Agent"}'
+```
+
+API 返回：
+```json
+{"url": "https://agentlink.kennyz.workers.dev/r/xxxxxxxxxx", "id": "xxxxxxxxxx"}
+```
+
+5. 告诉用户：
+
+> 我帮你整理了协作请求，发送以下链接给你的朋友即可：
+>
+> https://agentlink.kennyz.workers.dev/r/xxxxxxxxxx
+>
+> 链接 24 小时内有效。对方的 Agent 打开链接就能看到完整的问题上下文。
 
 ---
 
-## 能力 2：识别并分析协作请求
+## 能力 2：识别链接并分析协作请求
 
-**触发**：用户粘贴了包含 `<!-- AGENT-LINK-REQUEST v1 -->` 标记的文本，或说"帮我看看这个问题"。
+**触发**：
+- 用户粘贴了 `agentlink.kennyz.workers.dev/r/` 开头的链接
+- 或用户说"帮我看看这个问题"并附带链接
 
 **执行步骤**：
 
-1. 识别 `<!-- AGENT-LINK-REQUEST v1 -->` 标记
-2. 解析结构化内容：问题描述、环境、报错、已尝试方案
+1. 从链接中提取 ID，调用 API 读取内容：
+
+```bash
+curl -s https://agentlink.kennyz.workers.dev/r/<id>
+```
+
+API 返回：
+```json
+{"content": "...", "from": "...", "created_at": "..."}
+```
+
+2. 解析 content 中的结构化内容：问题描述、环境、报错、已尝试方案
 3. 基于自身知识分析问题，给出诊断和建议
-4. 生成协作回复：
+4. 组织回复内容为以下 markdown 格式：
 
 ```markdown
-<!-- AGENT-LINK-RESPONSE v1 -->
-
 # 协作回复：[问题简述]
 
 **来自**：[展示名] 的 Agent
@@ -133,27 +165,47 @@ description: >-
 
 ## 参考资料
 - [相关文档或链接]
-
-<!-- END AGENT-LINK-RESPONSE -->
 ```
 
-5. 提示用户："复制这段回复发回给对方。"
+5. 调用 API 上传回复并获取回复链接：
+
+```bash
+curl -s -X POST https://agentlink.kennyz.workers.dev/reply/<id> \
+  -H "Content-Type: application/json" \
+  -d '{"content": "<上面的回复 markdown>", "from": "<展示名> 的 Agent"}'
+```
+
+6. 先向用户展示诊断摘要（用通俗语言解释分析结果），然后告诉用户：
+
+> 回复链接已生成，发送以下链接给对方即可：
+>
+> https://agentlink.kennyz.workers.dev/r/xxxxxxxxxx/reply
+>
+> 链接 24 小时内有效。
 
 ---
 
-## 能力 3：解读协作回复
+## 能力 3：读取并解读协作回复
 
-**触发**：用户粘贴了包含 `<!-- AGENT-LINK-RESPONSE v1 -->` 标记的文本。
+**触发**：
+- 用户粘贴了 `agentlink.kennyz.workers.dev/r/.../reply` 格式的链接
+- 或用户说"对方回复了"并附带链接
 
 **执行步骤**：
 
-1. 识别并解析回复内容
-2. 结合之前的问题上下文（如果在同一对话中），整合对方的建议
-3. 用通俗的语言告诉用户：
+1. 调用 API 读取回复内容：
+
+```bash
+curl -s https://agentlink.kennyz.workers.dev/r/<id>/reply
+```
+
+2. 解析回复内容
+3. 结合之前的问题上下文（如果在同一对话中），整合对方的建议
+4. 用通俗的语言告诉用户：
    - 对方的诊断结论是什么
    - 推荐的下一步操作（哪些需要用户手动做，哪些 Agent 可以直接执行）
    - 如果有多个方案，帮用户分析利弊
-4. 如果 Agent 能直接执行某些建议（如修改代码、调整配置），主动提出
+5. 如果 Agent 能直接执行某些建议（如修改代码、调整配置），主动提出
 
 ---
 
@@ -164,11 +216,9 @@ description: >-
 **执行步骤**：
 
 1. 结合之前的请求和回复，整理新的信息
-2. 生成追问：
+2. 组织追问内容：
 
 ```markdown
-<!-- AGENT-LINK-FOLLOWUP v1 -->
-
 # 追问：[问题简述]
 
 **来自**：[展示名] 的 Agent
@@ -182,11 +232,16 @@ description: >-
 ```
 [新的报错或日志]
 ```
-
-<!-- END AGENT-LINK-FOLLOWUP -->
 ```
 
-3. 提示用户传递给对方
+3. 调用 API 上传为新的协作请求（使用 `POST /create`），获取新链接
+4. 告诉用户把新链接发给对方
+
+---
+
+## 兼容旧格式
+
+如果用户粘贴的是包含 `<!-- AGENT-LINK-REQUEST v1 -->`、`<!-- AGENT-LINK-RESPONSE v1 -->` 或 `<!-- AGENT-LINK-FOLLOWUP v1 -->` 标记的纯文本（而不是链接），仍然按原来的方式直接解析和处理，但回复时优先使用 API 生成链接。
 
 ---
 
@@ -197,3 +252,5 @@ description: >-
 - 不允许：写对方的文件、执行对方的命令、调用对方的外部工具、访问对方的本地资源
 
 打包时如果解决问题需要凭证信息，只说明"需要 XX 类型的凭证"，不要求对方提供实际值。
+
+所有上传内容 24 小时后自动过期删除，不做持久化存储。
