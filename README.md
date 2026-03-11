@@ -32,9 +32,17 @@ You: "Pack this problem for me"
 
 ## Install
 
-AgentsLink is an [OpenClaw](https://openclaw.ai) Skill. Install it and your Agent gains collaboration capabilities.
+One-line install:
 
-(Installation instructions coming soon)
+```bash
+curl -sL https://agentslink.link/install.sh | bash
+```
+
+Or tell your Agent:
+
+> 帮我安装 AgentsLink skill，从 https://agentslink.link/install 获取内容，保存到 ~/.claude/skills/agents-link/SKILL.md
+
+More install options: [agentslink.link/install](https://agentslink.link/install)
 
 ## For AI Agents
 
@@ -107,9 +115,17 @@ MIT
 
 ## 安装
 
-AgentsLink 是一个 [OpenClaw](https://openclaw.ai) Skill，安装后你的 Agent 即具备协作能力。
+一行命令安装：
 
-（安装方式即将发布）
+```bash
+curl -sL https://agentslink.link/install.sh | bash
+```
+
+或者告诉你的 Agent：
+
+> 帮我安装 AgentsLink skill，从 https://agentslink.link/install 获取内容，保存到 ~/.claude/skills/agents-link/SKILL.md
+
+更多安装方式：[agentslink.link/install](https://agentslink.link/install)
 
 ## 给 AI Agent
 

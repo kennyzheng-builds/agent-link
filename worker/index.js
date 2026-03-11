@@ -16,6 +16,14 @@ export default {
       return new Response(null, { headers: corsHeaders });
     }
 
+    // robots.txt — block crawlers from /r/ paths
+    if (path === '/robots.txt') {
+      return new Response(
+        'User-agent: *\nDisallow: /r/\nDisallow: /reply/\n\nUser-agent: *\nAllow: /\n',
+        { headers: { 'Content-Type': 'text/plain', 'Cache-Control': 'public, max-age=86400' } }
+      );
+    }
+
     // favicon.ico — serve from KV
     if (path === '/favicon.ico') {
       const data = await env.AGENT_LINK_KV.get('favicon', { type: 'arrayBuffer' });
@@ -27,20 +35,22 @@ export default {
       return new Response(null, { status: 404 });
     }
 
-    // Rate limiting
-    const clientIP = request.headers.get('CF-Connecting-IP') || 'unknown';
-    const minute = Math.floor(Date.now() / (RATE_WINDOW * 1000));
-    const rateLimitKey = `rate:${clientIP}:${minute}`;
+    // Rate limiting — only for write operations (POST)
+    if (request.method === 'POST') {
+      const clientIP = request.headers.get('CF-Connecting-IP') || 'unknown';
+      const minute = Math.floor(Date.now() / (RATE_WINDOW * 1000));
+      const rateLimitKey = `rate:${clientIP}:${minute}`;
 
-    try {
-      const current = parseInt(await env.AGENT_LINK_KV.get(rateLimitKey)) || 0;
-      if (current >= RATE_LIMIT) {
-        return jsonResponse({ error: 'Rate limit exceeded. Max 5 requests per minute.' }, 429, {
-          ...corsHeaders, 'Retry-After': String(RATE_WINDOW),
-        });
-      }
-      await env.AGENT_LINK_KV.put(rateLimitKey, String(current + 1), { expirationTtl: RATE_WINDOW });
-    } catch (_) {}
+      try {
+        const current = parseInt(await env.AGENT_LINK_KV.get(rateLimitKey)) || 0;
+        if (current >= RATE_LIMIT) {
+          return jsonResponse({ error: 'Rate limit exceeded. Max 5 requests per minute.' }, 429, {
+            ...corsHeaders, 'Retry-After': String(RATE_WINDOW),
+          });
+        }
+        await env.AGENT_LINK_KV.put(rateLimitKey, String(current + 1), { expirationTtl: RATE_WINDOW });
+      } catch (_) {}
+    }
 
     try {
       // POST /create — 创建协作请求
@@ -50,13 +60,20 @@ export default {
           return jsonResponse({ error: 'content is required' }, 400, corsHeaders);
         }
         const id = generateId();
+        const accessCode = generateAccessCode();
         await env.AGENT_LINK_KV.put(`req:${id}`, JSON.stringify({
           content: body.content,
           from: body.from || 'Anonymous Agent',
           created_at: new Date().toISOString(),
+          access_code: accessCode,
         }), { expirationTtl: 86400 });
 
-        return jsonResponse({ url: `${url.origin}/r/${id}`, id }, 200, corsHeaders);
+        return jsonResponse({
+          url: `${url.origin}/r/${id}`,
+          id,
+          access_code: accessCode,
+          note: 'Share both the URL and the access code with the recipient. The code is required to read the content.',
+        }, 200, corsHeaders);
       }
 
       // GET /r/{id} — 读取协作请求
@@ -69,14 +86,31 @@ export default {
           return jsonResponse({ error: 'Not found or expired' }, 404, corsHeaders);
         }
         const parsed = JSON.parse(data);
+        const storedCode = parsed.access_code;
+
+        // Access code verification
+        const providedCode = url.searchParams.get('code');
+        if (storedCode && !isBrowser(request) && providedCode !== storedCode) {
+          return jsonResponse({
+            error: 'Access code required',
+            message: 'This collaboration request is protected by an access code. Add ?code=XXXXXX to the URL.',
+            hint: 'Ask the person who shared this link for the 6-character access code.',
+          }, 403, corsHeaders);
+        }
+
+        // Browser: show code entry page if no code or wrong code
+        if (storedCode && isBrowser(request) && providedCode !== storedCode) {
+          const wrongCode = providedCode && providedCode !== storedCode;
+          return renderCodeEntryPage({ id, origin: url.origin, type: 'request', wrongCode });
+        }
 
         const instructions = {
-          message: '这是一个 Agents Link 协作请求。请分析上面的问题，然后通过以下 API 提交你的回复：',
-          reply_api: `POST ${url.origin}/reply/${id}`,
-          reply_format: { content: '你的分析和建议（markdown 格式）', from: '你的名字 的 Agent' },
-          example: `curl -s -X POST ${url.origin}/reply/${id} -H "Content-Type: application/json" -d '{"content": "你的回复内容", "from": "XX 的 Agent"}'`,
-          note: '回复后会生成一个回复链接，请把链接发回给请求方。',
-          install_skill: '为了更好的协作体验（自动识别链接、结构化回复、敏感信息过滤），推荐安装 Agents Link skill：https://github.com/kennyzheng-builds/agent-link',
+          message: 'This is an AgentsLink collaboration request. Analyze the problem above, then submit your reply via the API below:',
+          reply_api: `POST ${url.origin}/reply/${id}?code=${storedCode || ''}`,
+          reply_format: { content: 'Your analysis and recommendations (markdown format)', from: "Your name's Agent" },
+          example: `curl -s -X POST "${url.origin}/reply/${id}?code=${storedCode || ''}" -H "Content-Type: application/json" -d '{"content": "your reply", "from": "XX Agent"}'`,
+          note: 'After replying, a reply link will be generated. Send the link and the same access code back to the requester.',
+          install_skill: 'For a better collaboration experience (auto-detect links, structured replies, sensitive info filtering), install the AgentsLink skill: https://agentslink.link/install',
         };
 
         if (isBrowser(request)) {
@@ -87,23 +121,37 @@ export default {
             from: parsed.from,
             created_at: parsed.created_at,
             id, origin: url.origin,
-            jsonData: { ...parsed, _instructions: instructions },
             hasReply: replyExists,
+            accessCode: storedCode,
           });
         }
 
+        // Remove access_code from response
+        delete parsed.access_code;
         parsed._instructions = instructions;
-        return jsonResponse(parsed, 200, corsHeaders);
+        return jsonResponse(parsed, 200, { ...corsHeaders, 'X-Robots-Tag': 'noindex, nofollow, noarchive' });
       }
 
       // POST /reply/{id} — 提交回复
       const replyPostMatch = path.match(/^\/reply\/([a-zA-Z0-9]+)$/);
       if (replyPostMatch && request.method === 'POST') {
         const id = replyPostMatch[1];
-        const req = await env.AGENT_LINK_KV.get(`req:${id}`);
-        if (!req) {
+        const reqData = await env.AGENT_LINK_KV.get(`req:${id}`);
+        if (!reqData) {
           return jsonResponse({ error: 'Request not found or expired' }, 404, corsHeaders);
         }
+        const reqParsed = JSON.parse(reqData);
+        const storedCode = reqParsed.access_code;
+
+        // Verify access code
+        const providedCode = url.searchParams.get('code');
+        if (storedCode && providedCode !== storedCode) {
+          return jsonResponse({
+            error: 'Access code required',
+            message: 'You must provide the correct access code to reply. Add ?code=XXXXXX to the URL.',
+          }, 403, corsHeaders);
+        }
+
         const body = await request.json();
         if (!body.content) {
           return jsonResponse({ error: 'content is required' }, 400, corsHeaders);
@@ -114,13 +162,37 @@ export default {
           created_at: new Date().toISOString(),
         }), { expirationTtl: 86400 });
 
-        return jsonResponse({ url: `${url.origin}/r/${id}/reply`, id }, 200, corsHeaders);
+        return jsonResponse({
+          url: `${url.origin}/r/${id}/reply`,
+          id,
+          access_code: storedCode,
+          note: 'Send both the reply link and the access code back to the requester.',
+        }, 200, corsHeaders);
       }
 
       // GET /r/{id}/reply — 读取回复
       const replyGetMatch = path.match(/^\/r\/([a-zA-Z0-9]+)\/reply$/);
       if (replyGetMatch && request.method === 'GET') {
         const id = replyGetMatch[1];
+
+        // Check access code from original request
+        const reqData = await env.AGENT_LINK_KV.get(`req:${id}`);
+        const reqParsed = reqData ? JSON.parse(reqData) : null;
+        const storedCode = reqParsed ? reqParsed.access_code : null;
+
+        const providedCode = url.searchParams.get('code');
+        if (storedCode && !isBrowser(request) && providedCode !== storedCode) {
+          return jsonResponse({
+            error: 'Access code required',
+            message: 'This reply is protected by the same access code as the original request. Add ?code=XXXXXX to the URL.',
+          }, 403, corsHeaders);
+        }
+
+        if (storedCode && isBrowser(request) && providedCode !== storedCode) {
+          const wrongCode = providedCode && providedCode !== storedCode;
+          return renderCodeEntryPage({ id, origin: url.origin, type: 'reply', wrongCode });
+        }
+
         const data = await env.AGENT_LINK_KV.get(`reply:${id}`);
         if (!data) {
           if (isBrowser(request)) return renderErrorPage('no_reply');
@@ -129,37 +201,96 @@ export default {
         const parsed = JSON.parse(data);
 
         const instructions = {
-          message: '这是一个 Agents Link 协作回复。请解读上面的分析和建议，用通俗语言告诉你的主人下一步该怎么做。',
+          message: 'This is an AgentsLink collaboration reply. Interpret the analysis and recommendations above, and explain to the user in plain language what to do next.',
         };
 
         if (isBrowser(request)) {
-          const reqData = await env.AGENT_LINK_KV.get(`req:${id}`);
-          const reqParsed = reqData ? JSON.parse(reqData) : null;
           return renderPage({
             type: 'reply',
             title: extractTitle(parsed.content),
             from: parsed.from,
             created_at: parsed.created_at,
             id, origin: url.origin,
-            jsonData: { ...parsed, _instructions: instructions },
             requestFrom: reqParsed ? reqParsed.from : null,
+            accessCode: storedCode,
           });
         }
 
         parsed._instructions = instructions;
-        return jsonResponse(parsed, 200, corsHeaders);
+        return jsonResponse(parsed, 200, { ...corsHeaders, 'X-Robots-Tag': 'noindex, nofollow, noarchive' });
+      }
+
+      // GET /install — 安装 Skill
+      if (path === '/install' && request.method === 'GET') {
+        const skillContent = await env.AGENT_LINK_KV.get('skill:latest');
+        if (!skillContent) {
+          if (isBrowser(request)) return renderInstallPage(url.origin, null);
+          return jsonResponse({ error: 'Skill content not available. Please try again later.' }, 503, corsHeaders);
+        }
+        if (isBrowser(request)) return renderInstallPage(url.origin, skillContent);
+        return jsonResponse({
+          name: 'agents-link',
+          description: 'Agent-to-Agent collaboration via context links — eliminate information loss from human relay.',
+          version: 'v1',
+          install_path: '~/.claude/skills/agents-link/SKILL.md',
+          content: skillContent,
+          _instructions: 'To install this skill:\n1. Create directory: mkdir -p ~/.claude/skills/agents-link/\n2. Save the "content" field to ~/.claude/skills/agents-link/SKILL.md\n3. Restart your agent session\n\nThe skill will be automatically detected on next session.',
+        }, 200, corsHeaders);
+      }
+
+      // GET /install.sh — 一行命令安装脚本
+      if (path === '/install.sh' && request.method === 'GET') {
+        const script = `#!/bin/bash
+set -e
+INSTALL_DIR="$HOME/.claude/skills/agents-link"
+echo "Installing AgentsLink skill..."
+mkdir -p "$INSTALL_DIR"
+curl -sL https://agentslink.link/install/skill.md -o "$INSTALL_DIR/SKILL.md"
+echo "AgentsLink skill installed to $INSTALL_DIR/SKILL.md"
+echo "Restart your Claude Code session to activate."
+`;
+        return new Response(script, {
+          headers: { 'Content-Type': 'text/plain; charset=utf-8', ...corsHeaders },
+        });
+      }
+
+      // GET /install/skill.md — 原始 SKILL.md 内容
+      if (path === '/install/skill.md' && request.method === 'GET') {
+        const skillContent = await env.AGENT_LINK_KV.get('skill:latest');
+        if (!skillContent) {
+          return new Response('Skill content not available.', { status: 503 });
+        }
+        return new Response(skillContent, {
+          headers: { 'Content-Type': 'text/markdown; charset=utf-8', ...corsHeaders },
+        });
       }
 
       // GET / — 首页
       if (path === '/' && request.method === 'GET') {
-        if (isBrowser(request)) return renderHomePage(url.origin);
+        if (isBrowser(request)) {
+          const siteHome = await env.AGENT_LINK_KV.get('site:home');
+          if (siteHome) {
+            return new Response(siteHome, {
+              headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'public, max-age=300' },
+            });
+          }
+          return renderHomePage(url.origin);
+        }
         return jsonResponse({
-          name: 'Agents Link API', version: 'v1',
+          name: 'AgentsLink',
+          description: 'Agent-to-Agent collaboration tool. Eliminate information loss when humans relay messages between AI Agents. Your Agent packages full problem context into a link, the other Agent reads and replies.',
+          version: 'v1',
+          website: 'https://agentslink.link',
+          _instructions: 'You are visiting the AgentsLink official website. AgentsLink is a Skill that gives you collaboration capabilities — package problem context, generate shareable links, analyze requests from other Agents, and reply.\n\nTo install this Skill so you can use it:\n1. Run: curl -sL https://agentslink.link/install/skill.md -o ~/.claude/skills/agents-link/SKILL.md (create the directory first with mkdir -p ~/.claude/skills/agents-link/)\n2. Or fetch https://agentslink.link/install (JSON) — the "content" field contains the full SKILL.md, save it to ~/.claude/skills/agents-link/SKILL.md\n3. After saving, tell the user to restart their Claude Code session to activate.\n\nAfter installation, the user can say "帮我打包这个问题" to package a problem, or paste any agentslink.link/r/... link to read a collaboration request.',
+          install_api: 'https://agentslink.link/install',
           endpoints: {
-            'POST /create': 'Create a collaboration request',
-            'GET /r/:id': 'Read a collaboration request',
-            'POST /reply/:id': 'Submit a reply',
-            'GET /r/:id/reply': 'Read a reply',
+            'POST /create': 'Create a collaboration request. Returns url, id, and access_code.',
+            'GET /r/:id?code=XXXXXX': 'Read a collaboration request (access code required)',
+            'POST /reply/:id?code=XXXXXX': 'Submit a reply (access code required)',
+            'GET /r/:id/reply?code=XXXXXX': 'Read a reply (access code required)',
+            'GET /install': 'Get Skill content for installation (JSON)',
+            'GET /install.sh': 'One-line shell install script',
+            'GET /install/skill.md': 'Raw SKILL.md file',
           }
         }, 200, corsHeaders);
       }
@@ -181,6 +312,13 @@ function generateId() {
   const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
   let r = '';
   for (let i = 0; i < 10; i++) r += chars.charAt(Math.floor(Math.random() * chars.length));
+  return r;
+}
+
+function generateAccessCode() {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let r = '';
+  for (let i = 0; i < 6; i++) r += chars.charAt(Math.floor(Math.random() * chars.length));
   return r;
 }
 
@@ -297,12 +435,14 @@ function pageCSS(typeColor) {
    Shared page shell (topbar + footer + toast)
    ═══════════════════════════════════════════ */
 
-function pageShell(css, bodyContent, scriptContent) {
+function pageShell(css, bodyContent, scriptContent, options = {}) {
+  const robotsMeta = options.noindex !== false ? '<meta name="robots" content="noindex, nofollow, noarchive">' : '';
   return `<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+${robotsMeta}
 <title>Agents Link</title>
 <link rel="icon" type="image/png" sizes="32x32" href="/favicon.ico">
 <style>${css}</style>
@@ -333,14 +473,111 @@ ${scriptContent ? `<script>${scriptContent}<\/script>` : ''}
 }
 
 /* ═══════════════════════════════════════════
+   Access Code Entry page
+   ═══════════════════════════════════════════ */
+
+function renderCodeEntryPage({ id, origin, type, wrongCode }) {
+  const isReq = type === 'request';
+  const targetUrl = isReq ? `${origin}/r/${id}` : `${origin}/r/${id}/reply`;
+  const typeColor = isReq ? 'var(--accent)' : 'var(--sage)';
+
+  const css = pageCSS(typeColor) + `
+  .code-wrap{max-width:400px;margin:0 auto;padding:80px 28px;text-align:center}
+  .code-icon{width:56px;height:56px;margin:0 auto 24px;border-radius:16px;background:${isReq ? 'var(--accent-dim)' : 'var(--sage-dim)'};display:flex;align-items:center;justify-content:center}
+  .code-icon svg{width:28px;height:28px;color:${typeColor}}
+  .code-title{font-size:22px;font-weight:600;color:#111110;margin-bottom:8px}
+  .code-desc{font-size:14px;color:var(--text-secondary);line-height:1.6;margin-bottom:32px}
+  .code-error{font-size:13px;color:#c0392b;margin-bottom:16px;font-family:var(--mono)}
+  .code-input-wrap{display:flex;gap:8px;margin-bottom:24px}
+  .code-input{display:block;width:100%;box-sizing:border-box;padding:14px 16px;font-family:var(--mono);font-size:20px;letter-spacing:6px;text-align:center;border:2px solid var(--border);border-radius:10px;background:var(--surface);color:var(--text);outline:none;transition:border-color .15s;text-transform:uppercase;margin-bottom:16px}
+  .code-input:focus{border-color:${typeColor}}
+  .code-input.error{border-color:#c0392b}
+  .code-submit{padding:12px 24px;background:var(--text);color:var(--bg);border:none;border-radius:10px;font-family:var(--sans);font-size:14px;font-weight:500;cursor:pointer;transition:opacity .15s;width:100%}
+  .code-submit:hover{opacity:.85}
+  .code-submit:disabled{opacity:.5;cursor:not-allowed}
+  .code-hint{font-size:12px;color:var(--text-dim);margin-top:16px;line-height:1.5}`;
+
+  const body = `
+<div class="code-wrap">
+  <div class="code-icon">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+      <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+    </svg>
+  </div>
+  <h1 class="code-title" data-i18n="codeTitle">Access Code Required</h1>
+  <p class="code-desc" data-i18n="codeDesc">This collaboration content is protected. Enter the 6-character access code to continue.</p>
+  ${wrongCode ? '<p class="code-error" data-i18n="codeError">Incorrect access code</p>' : ''}
+  <form id="codeForm" onsubmit="return submitCode(event)">
+    <input type="text" class="code-input ${wrongCode ? 'error' : ''}" id="codeInput" maxlength="6" placeholder="ABC123" autocomplete="off" autofocus>
+    <button type="submit" class="code-submit" id="submitBtn" data-i18n="codeSubmit">Verify</button>
+  </form>
+  <p class="code-hint" data-i18n="codeHint">The access code was shared together with the link. Ask the sender if you don't have it.</p>
+</div>`;
+
+  const script = `
+var i18n = {
+  zh: {
+    codeTitle: '\u9700\u8981\u8BBF\u95EE\u7801',
+    codeDesc: '\u8FD9\u4E2A\u534F\u4F5C\u5185\u5BB9\u53D7\u8BBF\u95EE\u7801\u4FDD\u62A4\u3002\u8BF7\u8F93\u5165 6 \u4F4D\u8BBF\u95EE\u7801\u7EE7\u7EED\u3002',
+    ${wrongCode ? "codeError: '\\u8BBF\\u95EE\\u7801\\u4E0D\\u6B63\\u786E'," : ''}
+    codeSubmit: '\u9A8C\u8BC1',
+    codeHint: '\u8BBF\u95EE\u7801\u4E0E\u94FE\u63A5\u4E00\u8D77\u5206\u4EAB\u3002\u5982\u679C\u4F60\u6CA1\u6709\uFF0C\u8BF7\u8BE2\u95EE\u53D1\u9001\u8005\u3002',
+    expire: '\u94FE\u63A5 24 \u5C0F\u65F6\u540E\u8FC7\u671F',
+  },
+  en: {
+    codeTitle: 'Access Code Required',
+    codeDesc: 'This collaboration content is protected. Enter the 6-character access code to continue.',
+    ${wrongCode ? "codeError: 'Incorrect access code'," : ''}
+    codeSubmit: 'Verify',
+    codeHint: 'The access code was shared together with the link. Ask the sender if you don\\'t have it.',
+    expire: 'Link expires in 24h',
+  }
+};
+var lang = /^zh/i.test(navigator.language) ? 'zh' : 'en';
+var t = i18n[lang];
+document.documentElement.lang = lang === 'zh' ? 'zh-CN' : 'en';
+document.title = lang === 'zh' ? 'Agents Link - \u9700\u8981\u8BBF\u95EE\u7801' : 'Agents Link - Access Code Required';
+document.querySelectorAll('[data-i18n]').forEach(function(el) {
+  var key = el.dataset.i18n;
+  if (t[key]) el.textContent = t[key];
+});
+
+var input = document.getElementById('codeInput');
+input.addEventListener('input', function() {
+  this.value = this.value.toUpperCase().replace(/[^A-Z0-9]/g, '');
+  this.classList.remove('error');
+});
+
+function submitCode(e) {
+  e.preventDefault();
+  var code = input.value.trim();
+  if (code.length !== 6) {
+    input.classList.add('error');
+    return false;
+  }
+  window.location.href = '${targetUrl}?code=' + encodeURIComponent(code);
+  return false;
+}`;
+
+  const robotsHeaders = { 'X-Robots-Tag': 'noindex, nofollow, noarchive' };
+  return new Response(pageShell(css, body, script), {
+    status: 403,
+    headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-cache', ...robotsHeaders },
+  });
+}
+
+/* ═══════════════════════════════════════════
    Request / Reply page renderer
    ═══════════════════════════════════════════ */
 
-function renderPage({ type, title, from, created_at, id, origin, jsonData, hasReply, requestFrom }) {
+function renderPage({ type, title, from, created_at, id, origin, hasReply, requestFrom, accessCode }) {
   const isReq = type === 'request';
   const typeColor = isReq ? 'var(--accent)' : 'var(--sage)';
   const pageUrl = isReq ? `${origin}/r/${id}` : `${origin}/r/${id}/reply`;
   const apiPath = isReq ? `GET /r/${id}` : `GET /r/${id}/reply`;
+  const baseFetchPath = isReq ? `${origin}/r/${id}` : `${origin}/r/${id}/reply`;
+  const fetchPath = accessCode ? `${baseFetchPath}?code=${accessCode}` : baseFetchPath;
 
   // Build cross-link HTML (Chinese default, i18n replaces for English)
   let crossLinkHTML = '';
@@ -358,7 +595,10 @@ function renderPage({ type, title, from, created_at, id, origin, jsonData, hasRe
     crossLinkEn = `Reply to <a href="${origin}/r/${id}">${escJS(requestFrom)}'s request</a>`;
   }
 
-  const safeJson = JSON.stringify(jsonData).replace(/<\//g, '<\\/');
+  const css = pageCSS(typeColor) + `
+  .json-loading{text-align:center;padding:40px;color:var(--text-dim);font-family:var(--mono);font-size:13px}
+  .json-loading .spinner{display:inline-block;width:20px;height:20px;border:2px solid var(--border);border-top-color:${typeColor};border-radius:50%;animation:spin .6s linear infinite;margin-bottom:12px}
+  @keyframes spin{to{transform:rotate(360deg)}}`;
 
   const body = `
 <div class="wrapper">
@@ -391,13 +631,14 @@ function renderPage({ type, title, from, created_at, id, origin, jsonData, hasRe
         <span id="copyCodeText" data-i18n="copy">\u590D\u5236</span>
       </button>
     </div>
-    <div class="json-card-body"><pre id="jsonContent"></pre></div>
+    <div class="json-card-body"><pre id="jsonContent"><div class="json-loading"><div class="spinner"></div><br>Loading...</div></pre></div>
   </div>
 </div>`;
 
+  // Content is loaded via fetch — NOT embedded in HTML source.
+  // This prevents HTML-parsing crawlers from extracting the content.
   const script = `
-var API_RESPONSE = ${safeJson};
-var RAW_JSON = JSON.stringify(API_RESPONSE, null, 2);
+var RAW_JSON = '';
 
 function highlightJSON(json) {
   var e = json.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
@@ -406,7 +647,16 @@ function highlightJSON(json) {
   e = e.replace(/([{}\\[\\]])/g,'<span class="j-brace">$1</span>');
   return e;
 }
-document.getElementById('jsonContent').innerHTML = highlightJSON(RAW_JSON);
+
+fetch('${fetchPath}', { headers: { 'Accept': 'application/json' } })
+  .then(function(r) { return r.json(); })
+  .then(function(data) {
+    RAW_JSON = JSON.stringify(data, null, 2);
+    document.getElementById('jsonContent').innerHTML = highlightJSON(RAW_JSON);
+  })
+  .catch(function() {
+    document.getElementById('jsonContent').textContent = 'Failed to load content.';
+  });
 
 var i18n = {
   zh: {
@@ -443,6 +693,7 @@ function showToast(msg) {
   setTimeout(function() { toast.classList.remove('show'); }, 2200);
 }
 function copyJSON() {
+  if (!RAW_JSON) return;
   navigator.clipboard.writeText(RAW_JSON).then(function() {
     var btn = document.getElementById('copyCodeBtn');
     var txt = document.getElementById('copyCodeText');
@@ -461,9 +712,10 @@ function copyLink() {
   });
 }`;
 
-  return new Response(pageShell(pageCSS(typeColor), body, script), {
+  const robotsHeaders = { 'X-Robots-Tag': 'noindex, nofollow, noarchive' };
+  return new Response(pageShell(css, body, script), {
     status: 200,
-    headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-cache' },
+    headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-cache', ...robotsHeaders },
   });
 }
 
@@ -506,6 +758,183 @@ document.querySelectorAll('[data-i18n]').forEach(function(el) {
 
   return new Response(pageShell(css, body, script), {
     status: parseInt(m.code),
+    headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-cache' },
+  });
+}
+
+/* ═══════════════════════════════════════════
+   Install page
+   ═══════════════════════════════════════════ */
+
+function renderInstallPage(origin, skillContent) {
+  const css = pageCSS('var(--accent)') + `
+  .install-hero{padding:60px 0 48px}
+  .install-hero h1{font-size:28px;font-weight:700;color:#111110;letter-spacing:-0.4px;margin-bottom:12px}
+  .install-hero p{font-size:15px;color:var(--text-secondary);line-height:1.7;max-width:520px}
+  .install-section{margin-bottom:48px}
+  .install-section h2{font-size:18px;font-weight:600;color:var(--text);margin-bottom:16px;display:flex;align-items:center;gap:10px}
+  .install-section h2 .badge{font-family:var(--mono);font-size:11px;font-weight:500;padding:3px 10px;border-radius:12px;letter-spacing:.5px}
+  .badge-recommend{background:var(--sage-dim);color:var(--sage);border:1px solid rgba(61,122,71,.15)}
+  .badge-alt{background:var(--accent-dim);color:var(--accent);border:1px solid rgba(158,124,46,.15)}
+  .cmd-box{background:#1e1e1e;border-radius:10px;overflow:hidden;margin-bottom:16px;position:relative}
+  .cmd-box-header{display:flex;align-items:center;justify-content:space-between;padding:12px 18px;background:#1c1c1c;border-bottom:1px solid #2a2a2a}
+  .cmd-box-label{font-family:var(--mono);font-size:11px;color:#666;letter-spacing:.5px}
+  .cmd-copy-btn{display:flex;align-items:center;gap:5px;padding:5px 12px;background:#2a2a2a;border:1px solid #444;border-radius:5px;color:#aaa;font-family:var(--mono);font-size:11px;cursor:pointer;transition:all .15s}
+  .cmd-copy-btn:hover{background:#333;color:#ddd;border-color:#555}
+  .cmd-copy-btn.copied{color:#7cc688;border-color:#5a9e66}
+  .cmd-copy-btn svg{width:12px;height:12px}
+  .cmd-box pre{padding:18px;font-family:var(--mono);font-size:13px;color:#c9c9c9;line-height:1.7;white-space:pre-wrap;word-break:break-all;margin:0}
+  .cmd-box .hl-cmd{color:#7aafcf}
+  .cmd-box .hl-url{color:#c3a76c}
+  .cmd-box .hl-comment{color:#555}
+  .install-note{font-size:13px;color:var(--text-dim);line-height:1.6;margin-top:8px}
+  .install-steps{display:flex;flex-direction:column;gap:12px;margin-top:16px}
+  .install-step{display:flex;gap:12px;align-items:flex-start}
+  .install-step-n{font-family:var(--mono);font-size:11px;font-weight:600;color:var(--accent);background:var(--accent-dim);width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:2px}
+  .install-step p{font-size:14px;color:var(--text-secondary);line-height:1.6}
+  .install-step code{font-family:var(--mono);font-size:12px;background:var(--accent-dim);padding:2px 7px;border-radius:4px;color:var(--accent)}
+  .divider-section{border:none;border-top:1px solid var(--border-light);margin:40px 0}
+  .platforms{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:16px}
+  .platform-card{padding:20px;background:var(--surface);border:1px solid var(--border-light);border-radius:8px}
+  .platform-card h3{font-size:14px;font-weight:600;color:var(--text);margin-bottom:8px}
+  .platform-card p{font-size:13px;color:var(--text-secondary);line-height:1.5}
+  .platform-card code{font-family:var(--mono);font-size:11px;background:#f5f3ef;padding:2px 6px;border-radius:3px}
+  @media(max-width:640px){.platforms{grid-template-columns:1fr}}
+  `;
+
+  const body = `
+<div class="wrapper">
+  <div class="install-hero">
+    <h1 data-i18n="title">安装 AgentsLink</h1>
+    <p data-i18n="subtitle">让你的 AI Agent 具备协作能力 -- 打包问题上下文、生成链接、分析协作请求、生成回复。</p>
+  </div>
+  <hr class="divider">
+
+  <div class="install-section">
+    <h2 data-i18n="method1Title"><span class="badge badge-recommend">推荐</span> 一行命令安装</h2>
+    <div class="cmd-box">
+      <div class="cmd-box-header">
+        <span class="cmd-box-label">TERMINAL</span>
+        <button class="cmd-copy-btn" id="copyCmd1" onclick="copyText('cmd1','copyCmd1')">
+          ${ICON_COPY} <span data-i18n="copy">复制</span>
+        </button>
+      </div>
+      <pre id="cmd1"><span class="hl-cmd">curl</span> -sL <span class="hl-url">https://agentslink.link/install.sh</span> | <span class="hl-cmd">bash</span></pre>
+    </div>
+    <p class="install-note" data-i18n="method1Note">自动创建目录并下载 Skill 文件到 ~/.claude/skills/agents-link/。安装后重启 Claude Code 会话即可使用。</p>
+  </div>
+
+  <hr class="divider-section">
+
+  <div class="install-section">
+    <h2 data-i18n="method2Title"><span class="badge badge-alt">方法 2</span> 告诉你的 Agent</h2>
+    <div class="cmd-box">
+      <div class="cmd-box-header">
+        <span class="cmd-box-label" data-i18n="pasteToAgent">粘贴给你的 Agent</span>
+        <button class="cmd-copy-btn" id="copyCmd2" onclick="copyText('cmd2','copyCmd2')">
+          ${ICON_COPY} <span data-i18n="copy">复制</span>
+        </button>
+      </div>
+      <pre id="cmd2">帮我安装 AgentsLink skill，从 https://agentslink.link/install 获取内容，保存到 ~/.claude/skills/agents-link/SKILL.md</pre>
+    </div>
+    <div class="install-steps">
+      <div class="install-step"><span class="install-step-n">1</span><p data-i18n="step1">Agent 会自动访问安装 API 获取 Skill 内容</p></div>
+      <div class="install-step"><span class="install-step-n">2</span><p data-i18n="step2">Agent 会创建目录并保存 SKILL.md 文件</p></div>
+      <div class="install-step"><span class="install-step-n">3</span><p data-i18n="step3">重启会话后，说 <code>帮我打包这个问题</code> 即可使用</p></div>
+    </div>
+  </div>
+
+  <hr class="divider-section">
+
+  <div class="install-section">
+    <h2 data-i18n="compatTitle">兼容的 Agent 平台</h2>
+    <div class="platforms">
+      <div class="platform-card">
+        <h3>Claude Code</h3>
+        <p data-i18n="claudeDesc">原生支持 Skills。安装后自动识别 <code>agentslink.link</code> 链接。</p>
+      </div>
+      <div class="platform-card">
+        <h3 data-i18n="otherTitle">其他 Agent</h3>
+        <p data-i18n="otherDesc">即使未安装 Skill，收到链接后 API 返回的 <code>_instructions</code> 字段会指导 Agent 如何回复。</p>
+      </div>
+    </div>
+  </div>
+</div>`;
+
+  const script = `
+var i18n = {
+  zh: {
+    title: '安装 AgentsLink',
+    subtitle: '让你的 AI Agent 具备协作能力 \\u2014\\u2014 打包问题上下文、生成链接、分析协作请求、生成回复。',
+    method1Title: '<span class="badge badge-recommend">推荐</span> 一行命令安装',
+    method1Note: '自动创建目录并下载 Skill 文件到 ~/.claude/skills/agents-link/。安装后重启 Claude Code 会话即可使用。',
+    method2Title: '<span class="badge badge-alt">方法 2</span> 告诉你的 Agent',
+    pasteToAgent: '粘贴给你的 Agent',
+    step1: 'Agent 会自动访问安装 API 获取 Skill 内容',
+    step2: 'Agent 会创建目录并保存 SKILL.md 文件',
+    step3: '重启会话后，说 <code>帮我打包这个问题</code> 即可使用',
+    compatTitle: '兼容的 Agent 平台',
+    claudeDesc: '原生支持 Skills。安装后自动识别 <code>agentslink.link</code> 链接。',
+    otherTitle: '其他 Agent',
+    otherDesc: '即使未安装 Skill，收到链接后 API 返回的 <code>_instructions</code> 字段会指导 Agent 如何回复。',
+    copy: '复制', expire: '链接 24 小时后过期',
+  },
+  en: {
+    title: 'Install AgentsLink',
+    subtitle: 'Give your AI Agent collaboration capabilities \\u2014 package problem context, generate links, analyze requests, and reply.',
+    method1Title: '<span class="badge badge-recommend">Recommended</span> One-line install',
+    method1Note: 'Automatically creates directory and downloads the Skill file to ~/.claude/skills/agents-link/. Restart your Claude Code session after install.',
+    method2Title: '<span class="badge badge-alt">Method 2</span> Tell your Agent',
+    pasteToAgent: 'Paste to your Agent',
+    step1: 'Your Agent will fetch the Skill content from the install API',
+    step2: 'Your Agent will create the directory and save the SKILL.md file',
+    step3: 'After restarting, say <code>pack this problem</code> to start using it',
+    compatTitle: 'Compatible Agent Platforms',
+    claudeDesc: 'Native Skills support. Auto-detects <code>agentslink.link</code> links after install.',
+    otherTitle: 'Other Agents',
+    otherDesc: 'Even without the Skill installed, the API response includes <code>_instructions</code> to guide any Agent on how to reply.',
+    copy: 'Copy', expire: 'Link expires in 24h',
+  }
+};
+var lang = /^zh/i.test(navigator.language) ? 'zh' : 'en';
+var t = i18n[lang];
+document.documentElement.lang = lang === 'zh' ? 'zh-CN' : 'en';
+document.title = lang === 'zh' ? 'AgentsLink - 安装' : 'AgentsLink - Install';
+document.querySelectorAll('[data-i18n]').forEach(function(el) {
+  var key = el.dataset.i18n;
+  if (t[key]) el[el.dataset.i18nHtml ? 'innerHTML' : 'textContent'] = t[key];
+});
+// fix: h2 with badges need innerHTML
+document.querySelectorAll('h2[data-i18n]').forEach(function(el) {
+  var key = el.dataset.i18n;
+  if (t[key]) el.innerHTML = t[key];
+});
+// fix: step3 and desc with code tags
+['step1','step2','step3','claudeDesc','otherDesc','method1Note'].forEach(function(k) {
+  var el = document.querySelector('[data-i18n="'+k+'"]');
+  if (el && t[k]) el.innerHTML = t[k];
+});
+
+function copyText(preId, btnId) {
+  var el = document.getElementById(preId);
+  navigator.clipboard.writeText(el.innerText).then(function() {
+    var btn = document.getElementById(btnId);
+    btn.classList.add('copied');
+    var span = btn.querySelector('span');
+    var orig = span.textContent;
+    span.textContent = lang === 'zh' ? '已复制' : 'Copied';
+    showToast(lang === 'zh' ? '已复制' : 'Copied');
+    setTimeout(function() { btn.classList.remove('copied'); span.textContent = orig; }, 2000);
+  });
+}
+function showToast(msg) {
+  var toast = document.getElementById('toast');
+  toast.textContent = msg; toast.classList.add('show');
+  setTimeout(function() { toast.classList.remove('show'); }, 2200);
+}`;
+
+  return new Response(pageShell(css, body, script, { noindex: false }), {
+    status: 200,
     headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-cache' },
   });
 }
@@ -576,7 +1005,7 @@ document.querySelectorAll('[data-i18n]').forEach(function(el) {
   if (t[key]) el[el.dataset.i18nHtml ? 'innerHTML' : 'textContent'] = t[key];
 });`;
 
-  return new Response(pageShell(css, body, script), {
+  return new Response(pageShell(css, body, script, { noindex: false }), {
     status: 200,
     headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-cache' },
   });

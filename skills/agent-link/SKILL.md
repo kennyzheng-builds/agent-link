@@ -1,270 +1,286 @@
 ---
 name: agents-link
 description: >-
-  Agent 间协作链接——让 Agent 打包问题上下文生成链接、通过链接读取并分析协作请求、生成协作回复链接。
-  消除人类在 Agent 之间传话造成的信息损耗。
-  Use this skill whenever:
-  (1) user wants to package a problem for someone else's agent ("帮我打包这个问题", "我要找人帮忙看看", "生成协作请求", "pack this problem"),
-  (2) user pastes an AgentsLink URL (agentslink.link/r/...),
-  (3) user pastes text containing <!-- AGENTS-LINK-REQUEST or <!-- AGENTS-LINK-RESPONSE or <!-- AGENTS-LINK-FOLLOWUP markers (legacy format),
-  (4) user asks to analyze a collaboration request from another agent,
-  (5) user wants to follow up on a previous collaboration ("还有问题", "方案试了不行", "继续追问"),
-  (6) user mentions "agents-link", "协作请求", "协作回复", or "上下文包".
+  Agent-to-Agent collaboration via shareable links. Use this skill whenever the user wants to package a problem for
+  someone else's AI agent to look at, or when they paste an agentslink.link URL, or when they receive a collaboration
+  request or reply from another agent. Trigger on phrases like "pack this problem", "get help from someone",
+  "send this to my friend's agent", "help me package this", or the Chinese equivalents like "帮我打包", "找人帮忙看看",
+  "生成协作请求". Also trigger when the user pastes text containing <!-- AGENTS-LINK-REQUEST, <!-- AGENTS-LINK-RESPONSE,
+  or <!-- AGENTS-LINK-FOLLOWUP markers (legacy format), or mentions "agents-link", "collaboration request",
+  "协作请求", "协作回复", or "上下文包". Even if the user doesn't use these exact words, if they're clearly trying to share
+  a technical problem with another person's AI agent or relay a response back, this skill applies.
 ---
 
-# AgentsLink：协作链接
+# AgentsLink: Agent-to-Agent Collaboration Links
 
-让 Agent（而非人类）来打包和解读问题上下文，人类只负责传递链接。
+When humans relay messages between AI agents, critical details get lost — error messages get paraphrased, config details are omitted, stack traces are truncated. AgentsLink solves this by letting agents package full problem context into a shareable link. The human just forwards the link; the receiving agent reads the complete context and replies with a structured analysis.
 
-## API 基础地址
+## API
 
 ```
 https://agentslink.link
 ```
 
-## 核心流程
+## Flow
 
 ```
-你的 Agent 打包问题 → 上传生成链接 → 你把链接发给朋友 → 朋友把链接给他的 Agent → Agent 读取链接并分析 → 生成回复链接 → 朋友把回复链接发回给你 → 你的 Agent 读取并解读
+Your Agent packages the problem → uploads → generates a link + access code
+→ user sends link AND code to a friend → friend gives both to their Agent
+→ that Agent reads (with code) & analyzes → uploads a reply → generates reply link
+→ friend sends reply link + code back → your Agent reads & interprets the reply
 ```
 
-## 展示名
+## Access Code
 
-首次使用时询问用户："你希望在协作中怎么称呼？（比如你的名字或昵称）"
+Every collaboration request is protected by a 6-character access code. The URL alone cannot be used to read the content — the code is also required. This prevents unauthorized access if someone discovers the URL. The same access code is used for the entire conversation thread (request, reply, and follow-ups).
 
-读取优先级：
-1. `~/.agents-link/config.json` 中的 `displayName` 字段
-2. 环境变量 `AGENTS_LINK_DISPLAY_NAME`
-3. 系统用户名
-4. "匿名"
+## Display Name
 
-首次获取后保存到 `~/.agents-link/config.json`：
+On first use, ask the user: "What name would you like to use for collaborations? (e.g., your name or a nickname)"
+
+Resolution order:
+1. `displayName` field in `~/.agents-link/config.json`
+2. `AGENTS_LINK_DISPLAY_NAME` environment variable
+3. System username
+4. "Anonymous"
+
+After obtaining the name, save it to `~/.agents-link/config.json`:
 ```json
 {"displayName": "Kenny"}
 ```
 
-后续所有请求/回复中显示为"XX 的 Agent"。
+Use "[Name]'s Agent" as the sender in all requests and replies.
 
 ---
 
-## 能力 1：打包协作请求并生成链接
+## Capability 1: Package a Collaboration Request
 
-**触发**：用户说"帮我打包这个问题"、"我要找人帮忙看看"、"生成协作请求"等。
+**Triggers:** User says "pack this problem", "I need someone to help with this", "send this to my friend's agent", "帮我打包", "找人帮忙看看", or similar.
 
-**执行步骤**：
+**Steps:**
 
-1. 从当前对话上下文中提取：
-   - 问题描述（用清晰的技术语言重新组织）
-   - 环境信息（语言版本、框架、OS 等）
-   - 完整报错信息（保留原始格式）
-   - 已尝试的方案及结果（✅ 已试 / ❌ 未试）
-   - 期望的帮助
+1. Extract from the current conversation:
+   - Problem description (reorganize in clear technical language)
+   - Environment info (language version, framework, OS, etc.)
+   - Full error messages (preserve original formatting)
+   - Solutions already attempted and their results
+   - What kind of help is expected
 
-2. **敏感信息过滤**（打包前必须执行）：
+2. **Scrub sensitive information before packaging.**
 
-   **技术凭证脱敏**：
-   - API Key / Token（`sk-`、`ghp_`、`xoxb-` 等模式）→ `[API_KEY_REDACTED]`
-   - 密码字段（`password=xxx`、`secret=xxx`）→ `[PASSWORD_REDACTED]`
-   - 私钥内容 → 完全移除，注明"已移除私钥，如需请单独安全传递"
+   The receiving agent needs *technical context* (error messages, SDK versions, API call patterns, config parameters) to solve the problem. It does not need *business context* (who you are, what your project is about, which internal tools you use). For each piece of information, ask: "Does the other agent need this to diagnose the technical issue?" If not, redact or generalize it.
 
-   **业务上下文脱敏**（关键：只保留对解决技术问题有用的信息）：
-   - 具体人名 → `[某人]`、`[用户A]`、`[用户B]`（解决技术问题不需要知道真名）
-   - 具体业务内容（任务标题、会议主题、项目名等）→ 抽象描述，如"创建一个任务"而非"约 XX 做 AI 设计分享"
-   - 内部 Agent / 工具名称 → 泛化描述，如"一个 CRM Agent"而非具体名称
-   - 对话场景细节（哪个平台的哪种聊天）→ 只保留技术相关部分，如"飞书应用"而非"飞书私聊"
+   **Credentials:**
+   - API keys/tokens (patterns like `sk-`, `ghp_`, `xoxb-`) → `[API_KEY_REDACTED]`
+   - Password fields (`password=xxx`, `secret=xxx`) → `[PASSWORD_REDACTED]`
+   - Private keys → remove entirely, note "Private key removed — share securely if needed"
 
-   **标识符脱敏**：
-   - 内部用户 ID（`ou_xxx`、`uid_xxx` 等）→ `[USER_ID]`
-   - 内部组织/租户 ID → `[ORG_ID]`
-   - 内部 IP / 内部域名 → `[INTERNAL_HOST]`
-   - 本地绝对路径 → 替换为相对路径
-   - 用户名 / 邮箱（出现在日志中的）→ `[USERNAME]` / `[EMAIL]`
+   **Business context:**
+   - Real names → `[Person A]`, `[Person B]`
+   - Specific business content (task titles, meeting topics, project names) → abstract descriptions, e.g., "create a task" instead of "schedule AI design review with Edward"
+   - Internal agent/tool names → generalized descriptions, e.g., "a CRM agent" instead of the specific product name
+   - Conversation scene details → keep only technically relevant parts, e.g., "a Feishu app" not "a Feishu private chat with the marketing team"
 
-   **核心原则**：对方 Agent 需要的是**技术上下文**（报错信息、SDK 版本、API 调用方式、配置参数），不需要知道**业务上下文**（你在做什么、跟谁做、用的什么内部工具）。打包时主动判断每条信息是否对解决技术问题有帮助，无关信息一律脱敏或移除。
+   **Identifiers:**
+   - Internal user IDs (`ou_xxx`, `uid_xxx`) → `[USER_ID]`
+   - Org/tenant IDs → `[ORG_ID]`
+   - Internal IPs/domains → `[INTERNAL_HOST]`
+   - Absolute local paths → relative paths
+   - Usernames/emails in logs → `[USERNAME]` / `[EMAIL]`
 
-3. 组织为以下 markdown 格式：
+   Note: technical configuration details (permission scopes like `contact:user.base:readonly`, error codes, API endpoint paths, SDK method names) are essential diagnostic information — keep them intact.
+
+3. Structure the content as markdown:
 
 ```markdown
-# 协作请求：[问题简述]
+# Collaboration Request: [brief problem summary]
 
-**来自**：[展示名] 的 Agent
-**时间**：[YYYY-MM-DD HH:mm]
-**类型**：[bug 排查 / 方案咨询 / 代码 review / 配置问题 / 其他]
+**From:** [display name]'s Agent
+**Date:** [YYYY-MM-DD HH:mm]
+**Type:** [bug diagnosis / architecture consultation / code review / config issue / other]
 
-## 问题描述
-[清晰、完整的问题描述]
+## Problem Description
+[clear, complete problem description]
 
-## 环境信息
-- [关键环境信息，逐条列出]
+## Environment
+- [key environment details, one per line]
 
-## 报错信息
+## Error Output
 ```
-[完整的报错输出，保留原始格式]
-```
-
-## 已尝试方案
-1. ✅ [已尝试的方案] → [结果]
-2. ❌ [尚未尝试的方向]
-
-## 期望
-[希望对方帮忙做什么]
+[full error output, original formatting preserved]
 ```
 
-4. 调用 API 上传内容并获取链接：
+## Attempted Solutions
+1. Tried [approach] → [result]
+2. Not yet tried: [potential direction]
+
+## Expected Help
+[what the user hopes the other agent can help with]
+```
+
+4. Upload via API and get a shareable link:
 
 ```bash
 curl -s -X POST https://agentslink.link/create \
   -H "Content-Type: application/json" \
-  -d '{"content": "<上面组织好的 markdown 内容>", "from": "<展示名> 的 Agent"}'
+  -d '{"content": "<markdown content>", "from": "<display name>'\''s Agent"}'
 ```
 
-API 返回：
+Response:
 ```json
-{"url": "https://agentslink.link/r/xxxxxxxxxx", "id": "xxxxxxxxxx"}
+{"url": "https://agentslink.link/r/xxxxxxxxxx", "id": "xxxxxxxxxx", "access_code": "ABC123"}
 ```
 
-5. 告诉用户：
+The API returns both a URL and a 6-character **access code**. Both are needed to read the content.
 
-> 我帮你整理了协作请求，发送以下链接给你的朋友即可：
+5. Tell the user:
+
+> I've packaged the collaboration request. Send **both** of these to your friend:
 >
-> https://agentslink.link/r/xxxxxxxxxx
+> Link: https://agentslink.link/r/xxxxxxxxxx
+> Access code: ABC123
 >
-> 链接 24 小时内有效。对方的 Agent 打开链接就能看到完整的问题上下文。
+> The link is valid for 24 hours. Their agent needs both the link and the code to read the content.
 
 ---
 
-## 能力 2：识别链接并分析协作请求
+## Capability 2: Analyze a Collaboration Request
 
-**触发**：
-- 用户粘贴了 `agentslink.link/r/` 开头的链接
-- 或用户说"帮我看看这个问题"并附带链接
+**Triggers:**
+- User pastes a URL starting with `agentslink.link/r/` (usually with an access code)
+- User says "help me look at this problem" with a link and code
 
-**执行步骤**：
+**Steps:**
 
-1. 从链接中提取 ID，调用 API 读取内容：
+1. Extract the ID from the URL. The user should also provide a 6-character access code. Fetch the content with the code:
 
 ```bash
-curl -s https://agentslink.link/r/<id>
+curl -s "https://agentslink.link/r/<id>?code=<access_code>"
 ```
 
-API 返回：
+If you get a 403 error saying "Access code required", ask the user for the access code.
+
+Response:
 ```json
 {"content": "...", "from": "...", "created_at": "..."}
 ```
 
-2. 解析 content 中的结构化内容：问题描述、环境、报错、已尝试方案
-3. 基于自身知识分析问题，给出诊断和建议
-4. 组织回复内容为以下 markdown 格式：
+2. Parse the structured content: problem description, environment, errors, attempted solutions.
+3. Analyze the problem and form a diagnosis with actionable recommendations.
+4. Structure the reply as markdown:
 
 ```markdown
-# 协作回复：[问题简述]
+# Collaboration Reply: [brief problem summary]
 
-**来自**：[展示名] 的 Agent
-**时间**：[YYYY-MM-DD HH:mm]
-**针对**：[请求方展示名] 的 Agent 的协作请求
+**From:** [display name]'s Agent
+**Date:** [YYYY-MM-DD HH:mm]
+**In response to:** [requester's display name]'s Agent
 
-## 诊断结果
-[对问题的分析和根因判断]
+## Diagnosis
+[analysis and root cause assessment]
 
-## 建议方案
+## Recommended Solutions
 
-### 方案 A（推荐）：[方案名]
-[具体步骤，编号列出]
+### Option A (Recommended): [name]
+[concrete steps, numbered]
 
-### 方案 B：[方案名]
-[备选方案]
+### Option B: [name]
+[alternative approach]
 
-## 补充说明
-[额外的背景知识、注意事项]
+## Additional Notes
+[background knowledge, caveats]
 
-## 参考资料
-- [相关文档或链接]
+## References
+- [relevant documentation or links]
 ```
 
-5. 调用 API 上传回复并获取回复链接：
+5. Upload the reply (include the same access code):
 
 ```bash
-curl -s -X POST https://agentslink.link/reply/<id> \
+curl -s -X POST "https://agentslink.link/reply/<id>?code=<access_code>" \
   -H "Content-Type: application/json" \
-  -d '{"content": "<上面的回复 markdown>", "from": "<展示名> 的 Agent"}'
+  -d '{"content": "<reply markdown>", "from": "<display name>'\''s Agent"}'
 ```
 
-6. 先向用户展示诊断摘要（用通俗语言解释分析结果），然后告诉用户：
+6. First show the user a plain-language summary of the diagnosis, then:
 
-> 回复链接已生成，发送以下链接给对方即可：
+> The reply link is ready. Send **both** of these back to the requester:
 >
-> https://agentslink.link/r/xxxxxxxxxx/reply
+> Link: https://agentslink.link/r/xxxxxxxxxx/reply
+> Access code: ABC123
 >
-> 链接 24 小时内有效。
+> Valid for 24 hours. The same access code is used for the entire conversation thread.
 
 ---
 
-## 能力 3：读取并解读协作回复
+## Capability 3: Read and Interpret a Reply
 
-**触发**：
-- 用户粘贴了 `agentslink.link/r/.../reply` 格式的链接
-- 或用户说"对方回复了"并附带链接
+**Triggers:**
+- User pastes a URL matching `agentslink.link/r/.../reply` (usually with an access code)
+- User says "they replied" or "got the answer back" with a link and code
 
-**执行步骤**：
+**Steps:**
 
-1. 调用 API 读取回复内容：
+1. Fetch the reply (use the same access code from the original request):
 
 ```bash
-curl -s https://agentslink.link/r/<id>/reply
+curl -s "https://agentslink.link/r/<id>/reply?code=<access_code>"
 ```
 
-2. 解析回复内容
-3. 结合之前的问题上下文（如果在同一对话中），整合对方的建议
-4. 用通俗的语言告诉用户：
-   - 对方的诊断结论是什么
-   - 推荐的下一步操作（哪些需要用户手动做，哪些 Agent 可以直接执行）
-   - 如果有多个方案，帮用户分析利弊
-5. 如果 Agent 能直接执行某些建议（如修改代码、调整配置），主动提出
+If you already have the access code from the original request in this conversation, reuse it. Otherwise ask the user for the code.
+
+2. Parse the reply content.
+3. If the original request is in the same conversation, connect the reply back to the original context.
+4. Explain to the user in plain language:
+   - What the diagnosis concluded
+   - Recommended next steps (distinguish between what needs manual action and what the agent can do directly)
+   - If multiple options were suggested, help the user evaluate trade-offs
+5. If any recommendations can be executed directly (e.g., code changes, config adjustments), proactively offer to do so.
 
 ---
 
-## 能力 4：追问
+## Capability 4: Follow Up
 
-**触发**：用户说"还有问题"、"方案试了不行"、"继续追问"等。
+**Triggers:** User says "that didn't work", "I have more questions", "still broken", "continue the conversation", "继续追问", or similar.
 
-**执行步骤**：
+**Steps:**
 
-1. 结合之前的请求和回复，整理新的信息
-2. 组织追问内容：
+1. Combine the previous request, reply, and any new information from the conversation.
+2. Structure the follow-up:
 
 ```markdown
-# 追问：[问题简述]
+# Follow-up: [brief problem summary]
 
-**来自**：[展示名] 的 Agent
-**时间**：[YYYY-MM-DD HH:mm]
-**上下文**：基于 [回复方展示名] Agent 的回复
+**From:** [display name]'s Agent
+**Date:** [YYYY-MM-DD HH:mm]
+**Context:** Following up on [replier's display name]'s Agent's response
 
-## 追问内容
-[说明尝试了什么、结果如何、还有什么新信息]
+## Follow-up Details
+[what was tried, what happened, any new information]
 
-## 新增信息
+## New Information
 ```
-[新的报错或日志]
+[new error output or logs]
 ```
 ```
 
-3. 调用 API 上传为新的协作请求（使用 `POST /create`），获取新链接
-4. 告诉用户把新链接发给对方
+3. Upload as a new collaboration request (via `POST /create`) and get a new link.
+4. Tell the user to send the new link to the other person.
 
 ---
 
-## 兼容旧格式
+## Legacy Format Compatibility
 
-如果用户粘贴的是包含 `<!-- AGENTS-LINK-REQUEST v1 -->`、`<!-- AGENTS-LINK-RESPONSE v1 -->` 或 `<!-- AGENTS-LINK-FOLLOWUP v1 -->` 标记的纯文本（而不是链接），仍然按原来的方式直接解析和处理，但回复时优先使用 API 生成链接。
+If the user pastes plain text containing `<!-- AGENTS-LINK-REQUEST v1 -->`, `<!-- AGENTS-LINK-RESPONSE v1 -->`, or `<!-- AGENTS-LINK-FOLLOWUP v1 -->` markers (instead of a link), parse and process them as before. When replying, prefer generating an API link rather than inline text.
 
 ---
 
-## 安全边界
+## Safety Boundaries
 
-这是一个**只读咨询**工具：
-- 允许：文本问答、只读分析、返回建议和操作步骤
-- 不允许：写对方的文件、执行对方的命令、调用对方的外部工具、访问对方的本地资源
+This is a **read-only consultation** tool:
+- Allowed: text Q&A, read-only analysis, returning recommendations and action steps
+- Not allowed: writing to the other party's files, executing their commands, calling their external tools, accessing their local resources
 
-打包时如果解决问题需要凭证信息，只说明"需要 XX 类型的凭证"，不要求对方提供实际值。
+If solving the problem requires credentials, describe the type of credential needed without requesting actual values.
 
-所有上传内容 24 小时后自动过期删除，不做持久化存储。
+All uploaded content automatically expires and is deleted after 24 hours.

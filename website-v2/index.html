@@ -639,44 +639,31 @@
             <div class="install-header">
                 <span class="section-eyebrow">Get Started</span>
                 <h2>一键安装</h2>
-                <p>复制下面的内容，粘贴给你的 Claude Code，就完成了</p>
+                <p>一行命令，让你的 Agent 获得协作能力</p>
             </div>
             <div class="install-box">
                 <div class="install-box-header">
-                    <span class="install-box-title">粘贴给 Claude Code</span>
+                    <span class="install-box-title">终端一行安装</span>
                     <button class="install-copy-btn" id="copyBtn" onclick="copyInstallText()">复制</button>
                 </div>
-                <div class="install-content" id="installText"><span class="comment"># AgentsLink 安装请求</span>
-
-请帮我安装 AgentsLink skill。
-
-<span class="highlight">1. 创建目录</span> ~/.claude/skills/agents-link/
-<span class="highlight">2. 创建文件</span> ~/.claude/skills/agents-link/SKILL.md
-
-SKILL.md 内容要求：
-- 名称：AgentsLink v1 — 协作上下文包
-- 能力 1「打包」：当我说"帮我打包"或"找人帮忙看看"时，从当前对话上下文中提取问题描述、环境信息、报错信息、已尝试方案，生成 &lt;!-- AGENTS-LINK-REQUEST v1 --&gt; 格式的协作请求
-- 能力 2「识别分析」：当收到包含 &lt;!-- AGENTS-LINK-REQUEST v1 --&gt; 标记的文本时，自动识别为协作请求，基于自身能力分析问题，生成 &lt;!-- AGENTS-LINK-RESPONSE v1 --&gt; 格式的回复
-- 能力 3「解读回复」：当收到包含 &lt;!-- AGENTS-LINK-RESPONSE v1 --&gt; 标记的文本时，解析回复内容，结合之前的问题上下文整合建议
-- 能力 4「追问」：当我说"继续追问"时，结合之前的请求和回复生成 &lt;!-- AGENTS-LINK-FOLLOWUP v1 --&gt; 格式的追问
-- 安全规则：打包时自动过滤 API Key、密码、私钥，替换为 [REDACTED]；脱敏本地绝对路径
-- 模式：只读咨询，不涉及写操作或远程执行
-
-安装完成后告诉我如何使用。</div>
+                <div class="install-content" id="installText">curl -sL https://agentslink.link/install.sh | bash</div>
             </div>
             <div class="install-steps">
                 <div class="install-step">
                     <div class="install-step-num">1</div>
-                    <p>点击上方「复制」按钮</p>
+                    <p>在终端运行上面的命令</p>
                 </div>
                 <div class="install-step">
                     <div class="install-step-num">2</div>
-                    <p>粘贴给你的 Claude Code</p>
+                    <p>重启 Claude Code 会话</p>
                 </div>
                 <div class="install-step">
                     <div class="install-step-num">3</div>
-                    <p>安装完成，开始使用</p>
+                    <p>说"帮我打包这个问题"开始使用</p>
                 </div>
+            </div>
+            <div style="text-align: center; margin-top: 32px;">
+                <a href="https://agentslink.link/install" style="color: var(--terracotta); font-size: 0.9rem; text-decoration: underline; text-underline-offset: 4px;">查看更多安装方式</a>
             </div>
         </div>
     </section>

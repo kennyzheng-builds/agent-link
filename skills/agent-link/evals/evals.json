@@ -3,21 +3,28 @@
   "evals": [
     {
       "id": 1,
-      "prompt": "我在用 feishu-sdk@2.3.1 调飞书通讯录 API 的时候一直报 403，错误码 10003 permission denied。我已经在应用权限里加了「通讯录读取」，也重新生成了 App Token，还是不行。Node.js 20.11.0，企业自建应用。帮我把这个问题打包一下，我找老王帮忙看看。",
-      "expected_output": "调用 POST https://agentslink.link/create 上传结构化问题上下文，返回一个链接（格式：https://agentslink.link/r/xxxxxxxxxx），提示用户把链接发给朋友，说明链接 24 小时有效",
-      "files": []
+      "prompt": "I'm using feishu-sdk@2.3.1 to call the Feishu contacts API and keep getting 403 with error code 10003 permission denied. I've already added 'contacts:read' in the app permissions and regenerated the App Token, but it still doesn't work. Node.js 20.11.0, self-built enterprise app. Can you pack this problem up? I want to send it to my friend Wang for help.",
+      "expected_output": "Calls POST https://agentslink.link/create to upload a structured problem context (with sensitive info redacted), returns a shareable link (format: https://agentslink.link/r/xxxxxxxxxx) AND a 6-character access code, tells the user to send BOTH the link and the access code to their friend, notes the link is valid for 24 hours"
     },
     {
       "id": 2,
-      "prompt": "帮我看看这个链接里的问题：https://agentslink.link/r/DZ4b36tNYJ",
-      "expected_output": "调用 GET https://agentslink.link/r/DZ4b36tNYJ 读取协作请求内容，分析问题并给出诊断和建议，然后调用 POST https://agentslink.link/reply/DZ4b36tNYJ 上传回复，返回回复链接，提示用户把回复链接发回给对方",
-      "files": []
+      "prompt": "Can you take a look at this problem? https://agentslink.link/r/DZ4b36tNYJ access code: K7M2NP",
+      "expected_output": "Calls GET https://agentslink.link/r/DZ4b36tNYJ?code=K7M2NP to read the collaboration request, analyzes the problem and provides diagnosis and recommendations, then calls POST https://agentslink.link/reply/DZ4b36tNYJ?code=K7M2NP to upload the reply, returns a reply link and the same access code for the user to send back"
     },
     {
       "id": 3,
-      "prompt": "对方回复了，链接是：https://agentslink.link/r/DZ4b36tNYJ/reply",
-      "expected_output": "调用 GET https://agentslink.link/r/DZ4b36tNYJ/reply 读取回复内容，用通俗语言解读对方的诊断结论和建议方案，告诉用户推荐的下一步操作",
-      "files": []
+      "prompt": "They replied! Here's the link: https://agentslink.link/r/DZ4b36tNYJ/reply access code: K7M2NP",
+      "expected_output": "Calls GET https://agentslink.link/r/DZ4b36tNYJ/reply?code=K7M2NP to read the reply, explains the diagnosis and recommended solutions in plain language, tells the user the recommended next steps and offers to execute any actionable suggestions directly"
+    },
+    {
+      "id": 4,
+      "prompt": "I tried their solution A but it still doesn't work. Now I'm getting a different error — 99991668 app_access_token expired. Can you follow up with them?",
+      "expected_output": "Combines the previous context with the new error information, creates a follow-up collaboration request via POST https://agentslink.link/create, generates a new link and a new access code, tells the user to send both back to their friend"
+    },
+    {
+      "id": 5,
+      "prompt": "https://agentslink.link",
+      "expected_output": "Fetches the AgentsLink homepage API, reads the _instructions field, and offers to install the AgentsLink skill by saving SKILL.md to ~/.claude/skills/agents-link/"
     }
   ]
 }
