@@ -182,43 +182,53 @@ const COPY_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" str
 
 function pageCSS() {
   return `
-  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
   :root {
-    --bg: #faf9f6; --surface: #ffffff; --border: #e5e3dc; --border-light: #eceae4;
-    --text: #111110; --text-secondary: #55534c; --text-dim: #8a8880;
-    --accent: #9e7c2e; --accent-dim: rgba(158,124,46,0.08);
-    --sage: #3d7a47; --sage-dim: rgba(61,122,71,0.07);
-    --sans: 'Inter',-apple-system,BlinkMacSystemFont,sans-serif;
+    --bg: #f8f6f1; --surface: #efece6; --surface-2: #e6e3dc;
+    --border: #dbd7ce; --border-light: #cec9c0;
+    --text: #1a1714; --text-2: #5e5950; --text-3: #9a958c;
+    --gold: #a07d2e; --gold-dim: rgba(160,125,46,0.07); --gold-mid: rgba(160,125,46,0.12);
+    --green: #2e8c47; --green-dim: rgba(46,140,71,0.07);
+    --blue: #2e6fad;
+    --serif: 'Instrument Serif','Georgia',serif;
+    --sans: 'Outfit',-apple-system,BlinkMacSystemFont,sans-serif;
     --mono: 'JetBrains Mono','SF Mono','Fira Code',monospace;
   }
   *{margin:0;padding:0;box-sizing:border-box}
-  body{font-family:var(--sans);background:var(--bg);color:var(--text);font-size:15px;line-height:1.7;-webkit-font-smoothing:antialiased}
-  .wrapper{max-width:720px;margin:0 auto;padding:0 28px}
-  .topbar{padding:20px 0;border-bottom:1px solid var(--border-light)}
-  .topbar .wrapper{display:flex;align-items:center;justify-content:space-between}
-  .topbar-brand{font-family:var(--mono);font-size:13px;font-weight:500;color:var(--text);text-decoration:none;letter-spacing:-0.2px}
-  .topbar-expire{font-size:12px;font-family:var(--mono);color:var(--text-dim)}
+  html{scroll-behavior:smooth}
+  body{font-family:var(--sans);background:var(--bg);color:var(--text);font-size:15px;line-height:1.7;-webkit-font-smoothing:antialiased;font-kerning:normal;overflow-x:hidden}
+  ::selection{background:var(--gold-mid);color:var(--text)}
+  body::before{content:'';position:fixed;inset:0;z-index:9999;pointer-events:none;opacity:0.03;background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");background-size:200px}
+  .wrapper{max-width:720px;margin:0 auto;padding:0 32px}
+  nav{padding:24px 0;position:relative;z-index:10}
+  nav .wrapper{display:flex;align-items:center;justify-content:space-between}
+  .nav-brand{font-family:var(--mono);font-size:14px;font-weight:500;color:var(--text);text-decoration:none;letter-spacing:-0.3px;display:flex;align-items:center;gap:10px}
+  .nav-brand .dot{width:6px;height:6px;border-radius:50%;background:var(--gold);box-shadow:0 0 8px var(--gold-mid)}
+  .nav-links{display:flex;align-items:center;gap:28px}
+  .nav-links a{font-size:13px;font-weight:400;color:var(--text-3);text-decoration:none;transition:color .2s;letter-spacing:0.2px}
+  .nav-links a:hover{color:var(--text-2)}
+  .nav-links .gh-link{display:inline-flex;align-items:center;gap:6px}
+  .nav-links .gh-link svg{width:15px;height:15px}
   .header{padding:48px 0 36px}
   .header-type{font-family:var(--mono);font-size:12px;font-weight:500;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:12px}
-  .header-type.request{color:var(--accent)}
-  .header-type.reply{color:var(--sage)}
-  .header-title{font-size:26px;font-weight:600;color:#111110;line-height:1.35;letter-spacing:-0.4px;margin-bottom:16px}
-  .header-meta{display:flex;flex-wrap:wrap;align-items:center;gap:6px;font-size:14px;color:var(--text-secondary);line-height:1.6}
+  .header-type.request{color:var(--gold)}
+  .header-type.reply{color:var(--green)}
+  .header-title{font-family:var(--serif);font-size:32px;font-weight:400;color:var(--text);line-height:1.3;letter-spacing:-0.3px;margin-bottom:16px}
+  .header-meta{display:flex;flex-wrap:wrap;align-items:center;gap:6px;font-size:14px;color:var(--text-2);line-height:1.6}
   .header-meta .from{font-weight:500;color:var(--text)}
   .header-meta .sep{color:var(--border);margin:0 2px}
-  .header-meta .dim{color:var(--text-dim)}
-  .header-meta a{color:var(--text-secondary);text-decoration:underline;text-underline-offset:3px;text-decoration-color:var(--border);transition:text-decoration-color .15s}
-  .header-meta a:hover{text-decoration-color:var(--text-secondary)}
+  .header-meta .dim{color:var(--text-3)}
+  .header-meta a{color:var(--text-2);text-decoration:underline;text-underline-offset:3px;text-decoration-color:var(--border);transition:text-decoration-color .15s}
+  .header-meta a:hover{text-decoration-color:var(--text-2)}
   .divider{border:none;border-top:1px solid var(--border);margin:0 0 24px}
-  .json-card{border-radius:12px;overflow:hidden;margin-bottom:48px;box-shadow:0 2px 8px rgba(0,0,0,.08);position:relative}
-  .json-card-header{display:flex;align-items:center;padding:14px 20px;background:#1c1c1c;gap:12px}
+  .json-card{border-radius:12px;overflow:hidden;margin-bottom:48px;box-shadow:0 4px 24px rgba(0,0,0,.10),0 1px 4px rgba(0,0,0,.06);position:relative}
+  .json-card-header{display:flex;align-items:center;padding:14px 20px;background:#1a1a1e;gap:12px}
   .traffic-dots{display:flex;gap:7px}
   .traffic-dots span{width:12px;height:12px;border-radius:50%}
   .traffic-dots .dot-red{background:#ff5f57}
   .traffic-dots .dot-yellow{background:#febc2e}
   .traffic-dots .dot-green{background:#28c840}
   .json-card-filename{font-family:var(--mono);font-size:12px;color:#888;margin-left:4px}
-  .json-card-body{background:#1e1e1e;padding:24px;overflow-x:auto}
+  .json-card-body{background:#1a1a1e;padding:24px;overflow-x:auto}
   .json-card-body pre{font-family:var(--mono);font-size:13px;line-height:1.7;color:#c9c9c9;white-space:pre-wrap;word-wrap:break-word;margin:0}
   .j-key{color:#7aafcf} .j-str{color:#c3a76c} .j-brace{color:#888} .j-colon{color:#888}
   .json-card .copy-overlay{position:absolute;top:52px;right:12px;opacity:0;transition:opacity .15s ease;z-index:5}
@@ -228,30 +238,31 @@ function pageCSS() {
   .copy-json-btn.copied{color:#7cc688;border-color:#5a9e66}
   .copy-json-btn svg{width:13px;height:13px}
   .json-intro{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;gap:16px}
-  .json-intro-text{font-size:13px;color:var(--text-dim);line-height:1.5}
-  .copy-link-btn{display:inline-flex;align-items:center;gap:7px;padding:8px 16px;background:var(--accent-dim);border:1px solid rgba(158,124,46,.2);border-radius:6px;color:var(--accent);font-family:var(--mono);font-size:12px;font-weight:500;cursor:pointer;transition:all .2s;white-space:nowrap;flex-shrink:0}
-  .copy-link-btn:hover{background:rgba(158,124,46,.12);border-color:rgba(158,124,46,.35)}
-  .copy-link-btn.copied{border-color:var(--sage);color:var(--sage);background:var(--sage-dim)}
+  .json-intro-text{font-size:13px;color:var(--text-3);line-height:1.5}
+  .copy-link-btn{display:inline-flex;align-items:center;gap:7px;padding:8px 16px;background:var(--gold-dim);border:1px solid rgba(160,125,46,.2);border-radius:6px;color:var(--gold);font-family:var(--mono);font-size:12px;font-weight:500;cursor:pointer;transition:all .2s;white-space:nowrap;flex-shrink:0}
+  .copy-link-btn:hover{background:var(--gold-mid);border-color:rgba(160,125,46,.35)}
+  .copy-link-btn.copied{border-color:var(--green);color:var(--green);background:var(--green-dim)}
   .copy-link-btn svg{width:14px;height:14px}
-  .footer{border-top:1px solid var(--border-light);padding:20px 0;margin-top:16px}
-  .footer .wrapper{display:flex;align-items:center;justify-content:space-between}
-  .footer-left{display:flex;align-items:baseline;gap:10px}
+  footer{border-top:1px solid var(--border);padding:24px 0;margin-top:16px}
+  footer .wrapper{display:flex;align-items:center;justify-content:space-between}
+  .footer-left{display:flex;align-items:baseline;gap:12px}
   .footer-brand{font-family:var(--mono);font-size:13px;font-weight:500;color:var(--text);text-decoration:none}
-  .footer-love{font-size:11px;color:var(--text-dim)}
-  .footer-right a{font-family:var(--mono);font-size:12px;color:var(--text-dim);text-decoration:none;display:flex;align-items:center;gap:6px;transition:color .15s}
-  .footer-right a:hover{color:var(--text-secondary)}
-  .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(8px);background:var(--surface);border:1px solid var(--sage);color:var(--sage);padding:10px 24px;border-radius:8px;font-family:var(--mono);font-size:12px;box-shadow:0 4px 16px rgba(0,0,0,.08);opacity:0;transition:all .25s ease;pointer-events:none;z-index:100}
+  .footer-note{font-size:11px;color:var(--text-3);font-weight:300}
+  .footer-right a{font-size:13px;color:var(--text-3);text-decoration:none;display:inline-flex;align-items:center;gap:6px;transition:color .2s}
+  .footer-right a:hover{color:var(--text-2)}
+  .footer-right svg{width:15px;height:15px}
+  .toast{position:fixed;bottom:28px;left:50%;transform:translateX(-50%) translateY(8px);background:#fff;border:1px solid var(--green);color:var(--green);padding:10px 24px;border-radius:8px;font-family:var(--mono);font-size:12px;box-shadow:0 4px 16px rgba(0,0,0,.06);opacity:0;transition:all .25s ease;pointer-events:none;z-index:100}
   .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
   .not-found{text-align:center;padding:120px 0}
-  .not-found h1{font-size:72px;font-weight:700;color:var(--border);letter-spacing:-2px}
-  .not-found p{font-size:16px;color:var(--text-dim);margin-top:12px}
-  .not-found a{color:var(--accent);text-decoration:underline;text-underline-offset:3px}
+  .not-found h1{font-family:var(--serif);font-size:80px;font-weight:400;color:var(--border);letter-spacing:-2px}
+  .not-found p{font-size:16px;color:var(--text-3);margin-top:12px}
+  .not-found a{color:var(--gold);text-decoration:underline;text-underline-offset:3px}
   @media(max-width:640px){
-    .header-title{font-size:22px}
+    .header-title{font-size:26px}
     .wrapper{padding:0 20px}
     .json-card-body{padding:20px 16px}
     .json-card-body pre{font-size:11.5px}
-    .footer .wrapper{flex-direction:column;gap:8px}
+    footer .wrapper{flex-direction:column;gap:10px;text-align:center}
     .json-intro{flex-direction:column;align-items:flex-start;gap:10px}
   }`;
 }
@@ -263,34 +274,43 @@ function pageShell(title, body, script) {
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>${esc(title)}</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Outfit:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>${pageCSS()}</style>
 </head>
 <body>
-<div class="topbar">
+<nav>
   <div class="wrapper">
-    <a class="topbar-brand" href="/">Agents Link</a>
-    <span class="topbar-expire">24h</span>
+    <a class="nav-brand" href="/"><span class="dot"></span>Agents Link</a>
+    <div class="nav-links">
+      <span style="font-size:12px;font-family:var(--mono);color:var(--text-3)" data-i18n="expire">24h</span>
+      <a class="gh-link" href="https://github.com/kennyzheng-builds/agent-link" target="_blank">${GITHUB_SVG} GitHub</a>
+    </div>
   </div>
-</div>
+</nav>
 <div class="wrapper">${body}</div>
-<div class="footer">
+<footer>
   <div class="wrapper">
     <div class="footer-left">
       <a class="footer-brand" href="/">Agents Link</a>
-      <span class="footer-love">made with &#x1F497;</span>
+      <span class="footer-note">Open source</span>
     </div>
     <div class="footer-right">
-      <a href="https://github.com/kennyzheng-builds/agent-link" target="_blank">${GITHUB_SVG} GitHub</a>
+      <a href="https://github.com/kennyzheng-builds/agent-link" target="_blank">
+        <svg viewBox="0 0 24 24" fill="currentColor" width="15" height="15"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
+        GitHub
+      </a>
     </div>
   </div>
-</div>
+</footer>
 <div class="toast" id="toast"></div>
 <script>
 var _lang=/^zh/i.test(navigator.language)?'zh':'en';
 document.documentElement.lang=_lang==='zh'?'zh-CN':'en';
 var _i18n={
-  zh:{expire:'链接 24 小时后过期',type_req:'协作请求',type_reply:'协作回复',intro:'以下是 Agent 会看到的完整内容，敏感信息已自动脱敏',copyLink:'复制链接',copy:'复制',copied:'已复制',toastLink:'已复制，把链接发给你的 Agent 吧',toastJSON:'JSON 已复制'},
-  en:{expire:'Link expires in 24h',type_req:'Collaboration Request',type_reply:'Collaboration Reply',intro:'Below is the full content your Agent will see — sensitive info is auto-redacted',copyLink:'Copy link',copy:'Copy',copied:'Copied',toastLink:'Copied — send this link to your Agent',toastJSON:'JSON copied'}
+  zh:{expire:'链接 24 小时后过期',type_req:'协作请求',type_reply:'协作回复',intro:'以下是 Agent 会看到的完整内容，敏感信息已自动脱敏',copyLink:'复制链接',copy:'复制',copied:'已复制',toastLink:'已复制，把链接发给你的 Agent 吧',toastJSON:'JSON 已复制',hasReply:'已收到 <a href="{replyUrl}">协作回复</a>',reqRef:'回复 <a href="{reqUrl}">{from} 的协作请求</a>'},
+  en:{expire:'Link expires in 24h',type_req:'Collaboration Request',type_reply:'Collaboration Reply',intro:'Below is the full content your Agent will see — sensitive info is auto-redacted',copyLink:'Copy link',copy:'Copy',copied:'Copied',toastLink:'Copied — send this link to your Agent',toastJSON:'JSON copied',hasReply:'Has <a href="{replyUrl}">reply</a>',reqRef:'Reply to <a href="{reqUrl}">{from}\'s request</a>'}
 };
 var _t=_i18n[_lang];
 document.querySelectorAll('[data-i18n]').forEach(function(el){
@@ -418,8 +438,9 @@ function copyLink(){navigator.clipboard.writeText(_linkUrl).then(function(){var 
 // ── Render: 404 Page ──
 
 function render404Page() {
-  const body = `<div class="not-found"><h1>404</h1><p>链接已过期或不存在。<a href="/">返回首页</a></p></div>`;
-  return pageShell('Agents Link - Not Found', body, '');
+  const body = `<div class="not-found"><h1>404</h1><p data-i18n="notFound" data-i18n-html="1">链接已过期或不存在。<a href="/">返回首页</a></p></div>`;
+  const script = `_i18n.zh.notFound='链接已过期或不存在。<a href="/">返回首页</a>';_i18n.en.notFound='Link expired or not found. <a href="/">Back to home</a>';_t=_i18n[_lang];document.querySelectorAll('[data-i18n]').forEach(function(el){var k=el.dataset.i18n;if(_t[k])el[el.dataset.i18nHtml?'innerHTML':'textContent']=_t[k]});`;
+  return pageShell('Agents Link - Not Found', body, script);
 }
 
 // ── Render: Homepage ──
