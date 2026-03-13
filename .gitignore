@@ -49,7 +49,7 @@ wrangler.toml.bak
 docs/archive/
 docs/reviews/
 
-# 旧版代码（已替换为 skills/agent-link）
+# 旧版代码（已替换为 skills/agents-link）
 backend/
 skill/
 website/

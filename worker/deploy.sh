@@ -35,13 +35,13 @@ else
 fi
 
 # Step 3: Upload SKILL.md to KV as skill:latest
-SKILL_FILE="$PROJECT_DIR/skills/agent-link/SKILL.md"
+SKILL_FILE="$PROJECT_DIR/skills/agents-link/SKILL.md"
 if [ -f "$SKILL_FILE" ]; then
   echo "[3/3] Uploading SKILL.md to KV (skill:latest)..."
   npx wrangler kv key put "skill:latest" --namespace-id="$KV_NAMESPACE_ID" --path="$SKILL_FILE" --remote
   echo ""
 else
-  echo "[3/3] Warning: skills/agent-link/SKILL.md not found, skipping..."
+  echo "[3/3] Warning: skills/agents-link/SKILL.md not found, skipping..."
   echo ""
 fi
 
