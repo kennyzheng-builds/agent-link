@@ -1,8 +1,9 @@
 const RATE_LIMIT = 5;
 const RATE_WINDOW = 60;
+const ADMIN_KEY = 'aL_s7Qk9mPvX2nRjW4';
 
 export default {
-  async fetch(request, env) {
+  async fetch(request, env, ctx) {
     const url = new URL(request.url);
     const path = url.pathname;
 
@@ -46,6 +47,7 @@ export default {
           created_at: new Date().toISOString(),
           access_code: accessCode,
         }), { expirationTtl: 86400 });
+        ctx.waitUntil(trackEvent(env, 'create', { from: body.from, content_length: body.content.length, request_id: id }));
         return jsonResponse({
           url: `${url.origin}/r/${id}`,
           id,
@@ -76,6 +78,7 @@ export default {
           }, 403, corsHeaders);
         }
 
+        ctx.waitUntil(trackEvent(env, 'read_request', { from: parsed.from, request_id: id }));
         const reply = await env.AGENT_LINK_KV.get(`reply:${id}`);
         if (isBrowser) return htmlResponse(renderRequestPage(parsed, id, url.origin, !!reply, storedCode));
         const displayData = { content: parsed.content, from: parsed.from, created_at: parsed.created_at };
@@ -112,6 +115,7 @@ export default {
           from: body.from || 'Anonymous Agent',
           created_at: new Date().toISOString(),
         }), { expirationTtl: 86400 });
+        ctx.waitUntil(trackEvent(env, 'reply', { from: body.from, content_length: body.content.length, request_id: id }));
         return jsonResponse({
           url: `${url.origin}/r/${id}/reply`,
           id,
@@ -143,11 +147,39 @@ export default {
           return jsonResponse({ error: 'No reply yet' }, 404, corsHeaders);
         }
         const parsed = JSON.parse(data);
+        ctx.waitUntil(trackEvent(env, 'read_reply', { from: parsed.from, request_id: id }));
         if (isBrowser) return htmlResponse(renderReplyPage(parsed, id, url.origin, reqParsed, storedCode));
         parsed._instructions = {
           message: 'This is an AgentsLink collaboration reply. Interpret the analysis and recommendations above, and explain to the user in plain language what to do next.',
         };
         return jsonResponse(parsed, 200, corsHeaders);
+      }
+
+      // GET /admin/stats — usage statistics (admin only)
+      if (path === '/admin/stats' && request.method === 'GET') {
+        if (url.searchParams.get('key') !== ADMIN_KEY) return jsonResponse({ error: 'Unauthorized' }, 401, corsHeaders);
+        const today = new Date().toISOString().slice(0, 10);
+        const keys = [
+          'stats:create:total', 'stats:reply:total', 'stats:read_request:total', 'stats:read_reply:total',
+          `stats:create:${today}`, `stats:reply:${today}`, `stats:read_request:${today}`, `stats:read_reply:${today}`,
+        ];
+        const vals = await Promise.all(keys.map(k => env.AGENT_LINK_KV.get(k)));
+        const p = i => parseInt(vals[i]) || 0;
+        return jsonResponse({
+          all_time: { requests_created: p(0), replies_sent: p(1), requests_read: p(2), replies_read: p(3) },
+          today: { requests_created: p(4), replies_sent: p(5), requests_read: p(6), replies_read: p(7) },
+        }, 200, corsHeaders);
+      }
+
+      // GET /admin/events — recent event log (admin only)
+      if (path === '/admin/events' && request.method === 'GET') {
+        if (url.searchParams.get('key') !== ADMIN_KEY) return jsonResponse({ error: 'Unauthorized' }, 401, corsHeaders);
+        const limit = Math.min(parseInt(url.searchParams.get('limit')) || 50, 200);
+        const listed = await env.AGENT_LINK_KV.list({ prefix: 'stats:event:', limit });
+        const events = await Promise.all(
+          listed.keys.map(k => env.AGENT_LINK_KV.get(k.name).then(v => v ? JSON.parse(v) : null))
+        );
+        return jsonResponse({ count: events.filter(Boolean).length, events: events.filter(Boolean) }, 200, corsHeaders);
       }
 
       // GET /install — serve skill content
@@ -210,6 +242,35 @@ function generateAccessCode() {
   let result = '';
   for (let i = 0; i < 6; i++) result += chars.charAt(Math.floor(Math.random() * chars.length));
   return result;
+}
+
+async function trackEvent(env, eventType, metadata) {
+  try {
+    const now = new Date();
+    const today = now.toISOString().slice(0, 10);
+
+    const totalKey = `stats:${eventType}:total`;
+    const dailyKey = `stats:${eventType}:${today}`;
+    const [totalVal, dailyVal] = await Promise.all([
+      env.AGENT_LINK_KV.get(totalKey),
+      env.AGENT_LINK_KV.get(dailyKey),
+    ]);
+    await Promise.all([
+      env.AGENT_LINK_KV.put(totalKey, String((parseInt(totalVal) || 0) + 1)),
+      env.AGENT_LINK_KV.put(dailyKey, String((parseInt(dailyVal) || 0) + 1), { expirationTtl: 90 * 86400 }),
+    ]);
+
+    // Event log — descending timestamp so newest comes first in KV list
+    const descTs = String(9999999999999 - now.getTime()).padStart(13, '0');
+    const logKey = `stats:event:${descTs}:${Math.random().toString(36).slice(2, 6)}`;
+    await env.AGENT_LINK_KV.put(logKey, JSON.stringify({
+      type: eventType,
+      from: metadata.from || null,
+      content_length: metadata.content_length || 0,
+      request_id: metadata.request_id || null,
+      timestamp: now.toISOString(),
+    }), { expirationTtl: 90 * 86400 });
+  } catch (_) {}
 }
 
 function jsonResponse(data, status, corsHeaders) {
