@@ -696,7 +696,7 @@ function renderHomePage() {
 
   /* ── Problem / Solution ── */
   .narrative {
-    padding: 96px 0;
+    padding: 64px 0 72px;
   }
   .narrative-grid {
     display: grid;
@@ -728,7 +728,7 @@ function renderHomePage() {
 
   /* ── Flow Demo ── */
   .demo {
-    padding: 0 0 96px;
+    padding: 0 0 56px;
   }
   .demo-header {
     text-align: center;
@@ -1023,12 +1023,12 @@ function renderHomePage() {
     .hero h1 { letter-spacing: -1px; }
     .hero-sub { font-size: 16px; max-width: 100%; }
     .install-cmd { max-width: 100%; }
-    .narrative { padding: 64px 0; }
+    .narrative { padding: 48px 0 56px; }
     .narrative-grid {
       grid-template-columns: 1fr;
       gap: 40px;
     }
-    .demo { padding: 0 0 64px; }
+    .demo { padding: 0 0 40px; }
     .flow-container {
       grid-template-columns: 1fr;
       gap: 0;
@@ -1101,7 +1101,7 @@ function renderHomePage() {
   </div>
 </section>
 
-<section class="demo" id="how-it-works" style="padding-top: 120px;">
+<section class="demo" id="how-it-works" style="padding-top: 80px;">
   <div class="container">
     <div class="demo-header reveal">
       <h2>See it in action</h2>
