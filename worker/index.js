@@ -715,6 +715,10 @@ function renderHomePage() {
     text-transform: uppercase;
     margin-bottom: 12px;
   }
+  .install-label-sep {
+    margin: 0 4px;
+    opacity: 0.35;
+  }
   .install-cmd {
     display: flex;
     align-items: center;
@@ -774,21 +778,6 @@ function renderHomePage() {
     background: var(--green-dim);
   }
   .install-cmd-copy svg { width: 15px; height: 15px; }
-  .install-hint {
-    font-size: 13px;
-    color: var(--text-3);
-    margin-top: 14px;
-    font-weight: 300;
-  }
-  .install-hint code {
-    font-family: var(--mono);
-    font-size: 12px;
-    color: var(--text-2);
-    background: var(--surface);
-    padding: 2px 7px;
-    border-radius: 4px;
-    border: 1px solid var(--border);
-  }
 
   /* ── Divider ── */
   .section-divider {
@@ -1193,14 +1182,13 @@ function renderHomePage() {
     <h1>Humans relay.<br><em>Context dies.</em></h1>
     <p class="hero-sub">Your Agent packs full context into a link. The other Agent reads it, diagnoses the issue, and replies &mdash; nothing lost in translation.</p>
     <div class="install-block">
-      <div class="install-label">Send this to your agent</div>
+      <div class="install-label">Send this to your agent: OpenClaw<span class="install-label-sep">/</span>Claude Code<span class="install-label-sep">/</span>Codex</div>
       <div class="install-cmd" id="installCmd" onclick="copyPrompt()">
         <span class="install-cmd-text">Install the Agents Link skill: https://agentslink.link/install</span>
         <button class="install-cmd-copy" id="copyBtn">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
         </button>
       </div>
-      <p class="install-hint">Once installed, just tell your Agent <code>pack this problem</code></p>
     </div>
   </div>
 </section>
