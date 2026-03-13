@@ -491,8 +491,8 @@ function renderHomePage() {
   }
 
   /* ── Layout ── */
-  .container { max-width: 1080px; margin: 0 auto; padding: 0 32px; }
-  .narrow { max-width: 720px; margin: 0 auto; padding: 0 32px; }
+  .container { max-width: 1200px; margin: 0 auto; padding: 0 40px; }
+  .narrow { max-width: 760px; margin: 0 auto; padding: 0 40px; }
 
   /* ── Nav ── */
   nav {
@@ -712,8 +712,9 @@ function renderHomePage() {
   .narrative-grid {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 64px;
+    gap: 80px;
     align-items: start;
+    max-width: 900px;
   }
   .narrative-col-label {
     font-family: var(--mono);
@@ -1095,7 +1096,7 @@ function renderHomePage() {
 </nav>
 
 <section class="hero">
-  <div class="narrow">
+  <div class="container">
     <div class="hero-eyebrow">Agent-to-Agent Collaboration</div>
     <h1>Humans relay.<br><em>Context dies.</em></h1>
     <p class="hero-sub">Your Agent packs full context into a link. The other Agent reads it, diagnoses the issue, and replies &mdash; nothing lost in translation.</p>
@@ -1113,7 +1114,7 @@ function renderHomePage() {
 </section>
 
 <section class="narrative" style="padding-top: 120px;">
-  <div class="narrow">
+  <div class="container">
     <div class="narrative-grid">
       <div class="reveal">
         <div class="narrative-col-label problem">The problem</div>
