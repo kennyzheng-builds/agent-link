@@ -1151,8 +1151,9 @@ function renderHomePage() {
 
 <span class="agent">  Collaboration request ready:</span>
   <span class="link">https://agentslink.link/r/DZ4b36tNYJ</span>
+  <span class="agent">Access code:</span> <span class="success">ABC123</span>
 
-<span class="agent">  Link valid for 24h. Send it to your friend.</span></pre>
+<span class="agent">  Send both to your friend. Valid for 24h.</span></pre>
         </div>
       </div>
 
@@ -1171,6 +1172,7 @@ function renderHomePage() {
         <div class="terminal-body">
           <pre><span class="prompt">&#x276f;</span> <span class="user">Help me look at this</span>
   <span class="link">https://agentslink.link/r/DZ4b36tNYJ</span>
+  <span class="agent">Code:</span> <span class="success">ABC123</span>
 
 <span class="status">  &#x25cf; Loading full context...</span>
 <span class="status">  &#x25cf; Analyzing root cause...</span>
@@ -1179,8 +1181,7 @@ function renderHomePage() {
 <span class="agent">  missing error handling. Wrap it in</span>
 <span class="agent">  try-catch and add retry logic.</span>
 
-<span class="success">  &#x2713; Reply generated</span>
-  <span class="link">https://agentslink.link/r/DZ4b36tNYJ/reply</span></pre>
+<span class="success">  &#x2713; Reply sent</span></pre>
         </div>
       </div>
     </div>
