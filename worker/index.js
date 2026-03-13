@@ -39,12 +39,19 @@ export default {
         const body = await request.json();
         if (!body.content) return jsonResponse({ error: 'content is required' }, 400, corsHeaders);
         const id = generateId();
+        const accessCode = generateAccessCode();
         await env.AGENT_LINK_KV.put(`req:${id}`, JSON.stringify({
           content: body.content,
           from: body.from || 'Anonymous Agent',
           created_at: new Date().toISOString(),
+          access_code: accessCode,
         }), { expirationTtl: 86400 });
-        return jsonResponse({ url: `${url.origin}/r/${id}`, id }, 200, corsHeaders);
+        return jsonResponse({
+          url: `${url.origin}/r/${id}`,
+          id,
+          access_code: accessCode,
+          note: 'Share both the URL and the access code with the recipient. The code is required to read the content.',
+        }, 200, corsHeaders);
       }
 
       // GET /r/{id} — read request
@@ -57,15 +64,29 @@ export default {
           return jsonResponse({ error: 'Not found or expired' }, 404, corsHeaders);
         }
         const parsed = JSON.parse(data);
+        const storedCode = parsed.access_code;
+        const providedCode = url.searchParams.get('code');
+
+        // Access code verification
+        if (storedCode && providedCode !== storedCode) {
+          if (isBrowser) return htmlResponse(renderCodeEntryPage(id, url.origin, 'request', !!providedCode));
+          return jsonResponse({
+            error: 'Access code required',
+            message: 'This collaboration request is protected by an access code. Add ?code=XXXXXX to the URL.',
+            hint: 'Ask the person who shared this link for the 6-character access code.',
+          }, 403, corsHeaders);
+        }
+
         const reply = await env.AGENT_LINK_KV.get(`reply:${id}`);
-        if (isBrowser) return htmlResponse(renderRequestPage(parsed, id, url.origin, !!reply));
+        if (isBrowser) return htmlResponse(renderRequestPage(parsed, id, url.origin, !!reply, storedCode));
+        delete parsed.access_code;
         parsed._instructions = {
-          message: '这是一个 Agent Link 协作请求。请分析上面的问题，然后通过以下 API 提交你的回复：',
-          reply_api: `POST ${url.origin}/reply/${id}`,
-          reply_format: { content: '你的分析和建议（markdown 格式）', from: '你的名字 的 Agent' },
-          example: `curl -s -X POST ${url.origin}/reply/${id} -H "Content-Type: application/json" -d '{"content": "你的回复内容", "from": "XX 的 Agent"}'`,
-          note: '回复后会生成一个回复链接，请把链接发回给请求方。',
-          install_skill: '为了更好的协作体验（自动识别链接、结构化回复、敏感信息过滤），推荐安装 Agent Link skill：https://agentslink.link/install',
+          message: 'This is an AgentsLink collaboration request. Analyze the problem above, then submit your reply via the API below:',
+          reply_api: `POST ${url.origin}/reply/${id}?code=${storedCode || ''}`,
+          reply_format: { content: 'Your analysis and recommendations (markdown format)', from: "Your name's Agent" },
+          example: `curl -s -X POST "${url.origin}/reply/${id}?code=${storedCode || ''}" -H "Content-Type: application/json" -d '{"content": "your reply", "from": "XX Agent"}'`,
+          note: 'After replying, a reply link will be generated. Send the link and the same access code back to the requester.',
+          install_skill: 'For a better collaboration experience, install the AgentsLink skill: https://agentslink.link/install',
         };
         return jsonResponse(parsed, 200, corsHeaders);
       }
@@ -74,8 +95,17 @@ export default {
       const replyPostMatch = path.match(/^\/reply\/([a-zA-Z0-9]+)$/);
       if (replyPostMatch && request.method === 'POST') {
         const id = replyPostMatch[1];
-        const req = await env.AGENT_LINK_KV.get(`req:${id}`);
-        if (!req) return jsonResponse({ error: 'Request not found or expired' }, 404, corsHeaders);
+        const reqData = await env.AGENT_LINK_KV.get(`req:${id}`);
+        if (!reqData) return jsonResponse({ error: 'Request not found or expired' }, 404, corsHeaders);
+        const reqParsed = JSON.parse(reqData);
+        const storedCode = reqParsed.access_code;
+        const providedCode = url.searchParams.get('code');
+        if (storedCode && providedCode !== storedCode) {
+          return jsonResponse({
+            error: 'Access code required',
+            message: 'You must provide the correct access code to reply. Add ?code=XXXXXX to the URL.',
+          }, 403, corsHeaders);
+        }
         const body = await request.json();
         if (!body.content) return jsonResponse({ error: 'content is required' }, 400, corsHeaders);
         await env.AGENT_LINK_KV.put(`reply:${id}`, JSON.stringify({
@@ -83,26 +113,40 @@ export default {
           from: body.from || 'Anonymous Agent',
           created_at: new Date().toISOString(),
         }), { expirationTtl: 86400 });
-        return jsonResponse({ url: `${url.origin}/r/${id}/reply`, id }, 200, corsHeaders);
+        return jsonResponse({
+          url: `${url.origin}/r/${id}/reply`,
+          id,
+          access_code: storedCode,
+          note: 'Send both the reply link and the access code back to the requester.',
+        }, 200, corsHeaders);
       }
 
       // GET /r/{id}/reply — read reply
       const replyGetMatch = path.match(/^\/r\/([a-zA-Z0-9]+)\/reply$/);
       if (replyGetMatch && request.method === 'GET') {
         const id = replyGetMatch[1];
+        const reqData = await env.AGENT_LINK_KV.get(`req:${id}`);
+        const reqParsed = reqData ? JSON.parse(reqData) : null;
+        const storedCode = reqParsed ? reqParsed.access_code : null;
+        const providedCode = url.searchParams.get('code');
+
+        if (storedCode && providedCode !== storedCode) {
+          if (isBrowser) return htmlResponse(renderCodeEntryPage(id, url.origin, 'reply', !!providedCode));
+          return jsonResponse({
+            error: 'Access code required',
+            message: 'This reply is protected by the same access code as the original request. Add ?code=XXXXXX to the URL.',
+          }, 403, corsHeaders);
+        }
+
         const data = await env.AGENT_LINK_KV.get(`reply:${id}`);
         if (!data) {
           if (isBrowser) return htmlResponse(render404Page());
           return jsonResponse({ error: 'No reply yet' }, 404, corsHeaders);
         }
         const parsed = JSON.parse(data);
-        if (isBrowser) {
-          const reqData = await env.AGENT_LINK_KV.get(`req:${id}`);
-          const reqParsed = reqData ? JSON.parse(reqData) : null;
-          return htmlResponse(renderReplyPage(parsed, id, url.origin, reqParsed));
-        }
+        if (isBrowser) return htmlResponse(renderReplyPage(parsed, id, url.origin, reqParsed, storedCode));
         parsed._instructions = {
-          message: '这是一个 Agent Link 协作回复。请解读上面的分析和建议，用通俗语言告诉你的主人下一步该怎么做。',
+          message: 'This is an AgentsLink collaboration reply. Interpret the analysis and recommendations above, and explain to the user in plain language what to do next.',
         };
         return jsonResponse(parsed, 200, corsHeaders);
       }
@@ -123,10 +167,10 @@ export default {
           version: 'v1',
           description: 'Agent-to-agent collaboration via context-preserving links',
           endpoints: {
-            'POST /create': 'Create a collaboration request',
-            'GET /r/:id': 'Read a collaboration request',
-            'POST /reply/:id': 'Submit a reply',
-            'GET /r/:id/reply': 'Read a reply',
+            'POST /create': 'Create a collaboration request. Returns url, id, and access_code.',
+            'GET /r/:id?code=XXXXXX': 'Read a collaboration request (access code required)',
+            'POST /reply/:id?code=XXXXXX': 'Submit a reply (access code required)',
+            'GET /r/:id/reply?code=XXXXXX': 'Read a reply (access code required)',
           },
           install: 'https://agentslink.link/install',
         }, 200, corsHeaders);
@@ -152,6 +196,13 @@ function generateId() {
   const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
   let result = '';
   for (let i = 0; i < 10; i++) result += chars.charAt(Math.floor(Math.random() * chars.length));
+  return result;
+}
+
+function generateAccessCode() {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let result = '';
+  for (let i = 0; i < 6; i++) result += chars.charAt(Math.floor(Math.random() * chars.length));
   return result;
 }
 
@@ -321,13 +372,54 @@ ${script || ''}
 
 // ── Render: Request Page ──
 
-function renderRequestPage(data, id, origin, hasReply) {
+function renderCodeEntryPage(id, origin, type, wrongCode) {
+  const targetUrl = type === 'request' ? `${origin}/r/${id}` : `${origin}/r/${id}/reply`;
+  return `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
+<meta name="robots" content="noindex,nofollow,noarchive"><title>Agents Link - Access Code Required</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#faf9f6;color:#111;min-height:100vh;display:flex;align-items:center;justify-content:center}
+.wrap{max-width:400px;padding:40px 28px;text-align:center}
+.icon{width:56px;height:56px;margin:0 auto 24px;border-radius:16px;background:rgba(158,124,46,0.08);display:flex;align-items:center;justify-content:center}
+.icon svg{width:28px;height:28px;color:#9e7c2e}
+h1{font-size:22px;font-weight:600;margin-bottom:8px}
+.desc{font-size:14px;color:#55534c;line-height:1.6;margin-bottom:32px}
+.error{font-size:13px;color:#c0392b;margin-bottom:16px;font-family:monospace}
+input{display:block;width:100%;padding:14px 16px;font-family:monospace;font-size:20px;letter-spacing:6px;text-align:center;border:2px solid #e5e3dc;border-radius:10px;background:#fff;color:#111;outline:none;margin-bottom:16px;text-transform:uppercase}
+input:focus{border-color:#9e7c2e}
+input.err{border-color:#c0392b}
+button{width:100%;padding:12px;background:#111;color:#fff;border:none;border-radius:10px;font-size:14px;font-weight:500;cursor:pointer}
+button:hover{opacity:.85}
+.hint{font-size:12px;color:#8a8880;margin-top:16px;line-height:1.5}
+</style></head><body><div class="wrap">
+<div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></div>
+<h1 id="title">Access Code Required</h1>
+<p class="desc" id="desc">This collaboration content is protected. Enter the 6-character access code to continue.</p>
+${wrongCode ? '<p class="error" id="err">Incorrect access code</p>' : ''}
+<form onsubmit="return go(event)">
+<input type="text" id="code" maxlength="6" placeholder="ABC123" autocomplete="off" autofocus ${wrongCode ? 'class="err"' : ''}>
+<button type="submit" id="btn">Verify</button>
+</form>
+<p class="hint" id="hint">The access code was shared together with the link. Ask the sender if you don't have it.</p>
+</div>
+<script>
+var zh=/^zh/i.test(navigator.language);
+if(zh){document.getElementById('title').textContent='\\u9700\\u8981\\u8BBF\\u95EE\\u7801';document.getElementById('desc').textContent='\\u8FD9\\u4E2A\\u534F\\u4F5C\\u5185\\u5BB9\\u53D7\\u8BBF\\u95EE\\u7801\\u4FDD\\u62A4\\u3002\\u8BF7\\u8F93\\u5165 6 \\u4F4D\\u8BBF\\u95EE\\u7801\\u7EE7\\u7EED\\u3002';document.getElementById('btn').textContent='\\u9A8C\\u8BC1';document.getElementById('hint').textContent='\\u8BBF\\u95EE\\u7801\\u4E0E\\u94FE\\u63A5\\u4E00\\u8D77\\u5206\\u4EAB\\u3002\\u5982\\u679C\\u4F60\\u6CA1\\u6709\\uFF0C\\u8BF7\\u8BE2\\u95EE\\u53D1\\u9001\\u8005\\u3002';var e=document.getElementById('err');if(e)e.textContent='\\u8BBF\\u95EE\\u7801\\u4E0D\\u6B63\\u786E';}
+var inp=document.getElementById('code');
+inp.addEventListener('input',function(){this.value=this.value.toUpperCase().replace(/[^A-Z0-9]/g,'');this.classList.remove('err');});
+function go(e){e.preventDefault();var c=inp.value.trim();if(c.length!==6){inp.classList.add('err');return false;}window.location.href='${targetUrl}?code='+encodeURIComponent(c);return false;}
+</script></body></html>`;
+}
+
+function renderRequestPage(data, id, origin, hasReply, accessCode) {
   const title = extractTitle(data.content) || 'Collaboration Request';
   const time = formatTime(data.created_at);
-  const jsonStr = JSON.stringify(data, null, 2);
+  const displayData = Object.assign({}, data);
+  delete displayData.access_code;
+  const jsonStr = JSON.stringify(displayData, null, 2);
   const jsonHtml = highlightJSON(jsonStr);
   const linkUrl = `${origin}/r/${id}`;
-  const replyUrl = `${origin}/r/${id}/reply`;
+  const replyUrl = accessCode ? `${origin}/r/${id}/reply?code=${accessCode}` : `${origin}/r/${id}/reply`;
 
   const replyBadge = hasReply
     ? `<span class="sep">/</span><span data-i18n="hasReply" data-i18n-html="1">已收到 <a href="${esc(replyUrl)}">协作回复</a></span>`
@@ -371,7 +463,7 @@ function copyJSON(){navigator.clipboard.writeText(_rawJSON).then(function(){var 
 
 // ── Render: Reply Page ──
 
-function renderReplyPage(data, id, origin, reqData) {
+function renderReplyPage(data, id, origin, reqData, accessCode) {
   const title = reqData ? (extractTitle(reqData.content) || 'Collaboration Reply') : 'Collaboration Reply';
   const time = formatTime(data.created_at);
   const jsonStr = JSON.stringify(data, null, 2);
