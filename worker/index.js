@@ -237,12 +237,8 @@ function pageCSS() {
   .copy-json-btn:hover{background:#333;color:#ddd;border-color:#555}
   .copy-json-btn.copied{color:#7cc688;border-color:#5a9e66}
   .copy-json-btn svg{width:13px;height:13px}
-  .json-intro{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;gap:16px}
+  .json-intro{margin-bottom:16px}
   .json-intro-text{font-size:13px;color:var(--text-3);line-height:1.5}
-  .copy-link-btn{display:inline-flex;align-items:center;gap:7px;padding:8px 16px;background:var(--gold-dim);border:1px solid rgba(160,125,46,.2);border-radius:6px;color:var(--gold);font-family:var(--mono);font-size:12px;font-weight:500;cursor:pointer;transition:all .2s;white-space:nowrap;flex-shrink:0}
-  .copy-link-btn:hover{background:var(--gold-mid);border-color:rgba(160,125,46,.35)}
-  .copy-link-btn.copied{border-color:var(--green);color:var(--green);background:var(--green-dim)}
-  .copy-link-btn svg{width:14px;height:14px}
   footer{border-top:1px solid var(--border);padding:24px 0;margin-top:16px}
   footer .wrapper{display:flex;align-items:center;justify-content:space-between}
   .footer-left{display:flex;align-items:baseline;gap:12px}
@@ -351,10 +347,6 @@ function renderRequestPage(data, id, origin, hasReply) {
   <hr class="divider">
   <div class="json-intro">
     <span class="json-intro-text" data-i18n="intro">以下是 Agent 会看到的完整内容，敏感信息已自动脱敏</span>
-    <button class="copy-link-btn" id="ctaBtn" onclick="copyLink()">
-      ${COPY_SVG}
-      <span id="ctaText" data-i18n="copyLink">复制链接</span>
-    </button>
   </div>
   <div class="json-card">
     <div class="json-card-header">
@@ -372,9 +364,7 @@ function renderRequestPage(data, id, origin, hasReply) {
 
   const script = `
 var _rawJSON=${JSON.stringify(jsonStr)};
-var _linkUrl=${JSON.stringify(linkUrl)};
-function copyJSON(){navigator.clipboard.writeText(_rawJSON).then(function(){var b=document.getElementById('copyCodeBtn'),t=document.getElementById('copyCodeText');b.classList.add('copied');t.textContent=_t.copied;showToast(_t.toastJSON);setTimeout(function(){b.classList.remove('copied');t.textContent=_t.copy},2000)})}
-function copyLink(){navigator.clipboard.writeText(_linkUrl).then(function(){var b=document.getElementById('ctaBtn'),t=document.getElementById('ctaText');b.classList.add('copied');t.textContent=_t.copied;showToast(_t.toastLink);setTimeout(function(){b.classList.remove('copied');t.textContent=_t.copyLink},2500)})}`;
+function copyJSON(){navigator.clipboard.writeText(_rawJSON).then(function(){var b=document.getElementById('copyCodeBtn'),t=document.getElementById('copyCodeText');b.classList.add('copied');t.textContent=_t.copied;showToast(_t.toastJSON);setTimeout(function(){b.classList.remove('copied');t.textContent=_t.copy},2000)})}`;
 
   return pageShell(`Agents Link - ${title}`, body, script);
 }
@@ -407,10 +397,6 @@ function renderReplyPage(data, id, origin, reqData) {
   <hr class="divider">
   <div class="json-intro">
     <span class="json-intro-text" data-i18n="intro">以下是 Agent 会看到的完整内容，敏感信息已自动脱敏</span>
-    <button class="copy-link-btn" id="ctaBtn" onclick="copyLink()">
-      ${COPY_SVG}
-      <span id="ctaText" data-i18n="copyLink">复制链接</span>
-    </button>
   </div>
   <div class="json-card">
     <div class="json-card-header">
@@ -428,9 +414,7 @@ function renderReplyPage(data, id, origin, reqData) {
 
   const script = `
 var _rawJSON=${JSON.stringify(jsonStr)};
-var _linkUrl=${JSON.stringify(linkUrl)};
-function copyJSON(){navigator.clipboard.writeText(_rawJSON).then(function(){var b=document.getElementById('copyCodeBtn'),t=document.getElementById('copyCodeText');b.classList.add('copied');t.textContent=_t.copied;showToast(_t.toastJSON);setTimeout(function(){b.classList.remove('copied');t.textContent=_t.copy},2000)})}
-function copyLink(){navigator.clipboard.writeText(_linkUrl).then(function(){var b=document.getElementById('ctaBtn'),t=document.getElementById('ctaText');b.classList.add('copied');t.textContent=_t.copied;showToast(_t.toastLink);setTimeout(function(){b.classList.remove('copied');t.textContent=_t.copyLink},2500)})}`;
+function copyJSON(){navigator.clipboard.writeText(_rawJSON).then(function(){var b=document.getElementById('copyCodeBtn'),t=document.getElementById('copyCodeText');b.classList.add('copied');t.textContent=_t.copied;showToast(_t.toastJSON);setTimeout(function(){b.classList.remove('copied');t.textContent=_t.copy},2000)})}`;
 
   return pageShell(`Agents Link - ${title}`, body, script);
 }
