@@ -600,7 +600,6 @@ function renderHomePage() {
     color: var(--text-3);
     line-height: 1.7;
     margin-top: 24px;
-    max-width: 600px;
     margin-left: auto;
     margin-right: auto;
     letter-spacing: 0.1px;
